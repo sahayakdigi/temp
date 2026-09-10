@@ -1,0 +1,857 @@
+
+
+LOGISYNC
+Business & Software Application Requirements (BSAR)
+Unified FTL + PTL Operations Platform for SMB Fleet Owners
+Engineering Build Specification  •  End-to-End Operations & UI Flow
+
+Field
+Detail
+Document
+LogiSync BSAR — FTL + PTL build specification
+Audience
+Engineering, product, founding team
+Status
+Draft v1.0 for build planning
+Scope
+Admin web, driver app, client portal, automation & integrations
+Date
+June 2026
+
+Confidential — internal build document.
+
+1.  Purpose, Scope & Objectives
+Purpose
+This BSAR defines the functional and technical requirements for LogiSync, a single platform that runs the complete operations of a small or mid-size Indian fleet owner (10–50 trucks) across both Full-Truck-Load (FTL) and Part-Truck-Load (PTL) business — from booking through delivery, profitability and settlement. It is written as a build specification: it enumerates personas, the data model, functional modules with traceable requirement IDs, end-to-end workflows, role permissions, integrations, non-functional requirements and a phased release plan, with annotated UI wireframes.
+Why FTL and PTL in one system
+FTL is trip-centric: one contract maps to one truck, one trip and one profit-and-loss line. PTL is consignment-centric: a single vehicle carries many consignments (LRs) from different shippers, consolidated at hubs, billed on different terms and delivered on separate runs. LogiSync unifies both by making the Consignment (LR) and the Trip first-class records that share one fleet, one driver app, one ledger and one client portal. PTL simply adds a Hub/Manifest consolidation layer between booking and dispatch; everything downstream (tracking, ledger, billing) is common.
+In-scope objectives
+Single source of truth for fleet, drivers, parties, agents and hired-vehicle owners.
+Unified booking for FTL trips and PTL consignments with an auto-rate engine.
+Multi-branch hierarchy: Head Office to Branch to Hub to Warehouse, with branch-scoped roles and roll-up P&L.
+Hub stock, manifest consolidation and transshipment (crossing) for PTL line-haul.
+Warehouse inbound receipt (GRN), per-article barcode/QR material tagging, putaway, stock and outbound pick.
+Order-to-cash and statutory compliance: quotation/order, GST/RCM/TDS billing with e-invoice, and physical-POD-driven collection.
+Field-cash control: driver trip advances, branch collection and remittance to Head Office.
+Offline-first driver app with OTP login, odometer/photo capture, OCR expense capture and ePOD.
+Automatic Digital Ledger computing net profit at LR, trip, branch and company level.
+Dual-side billing & settlement: client invoicing/To-Pay, agent commissions, lorry-owner hire.
+Client portal with quote intake, live ETA and document repository, plus WhatsApp/SMS automation.
+Out of scope (this version)
+Marketplace/load-exchange matching, GST return filing and full general-ledger accounting (we generate GST invoices and e-invoices but export ledgers to Tally/GST tools), and driver payroll. Warehousing, statutory billing and order-to-cash are in scope (Modules M5 and M14–M17). These remain candidates for later phases or third-party integration.
+2.  Personas & Roles
+LogiSync serves seven primary roles across three applications (admin web, driver mobile app, client portal). Access is scoped by role and, for branch staff, by branch.
+Role
+Application
+Primary responsibilities
+Owner / Admin
+Admin web
+Full visibility; fleet, finance, masters, multi-branch P&L, settlements.
+Branch Manager
+Admin web
+Branch bookings, hub/manifest, local collections and P&L.
+Booking Agent / Broker
+Admin web (scoped)
+Create bookings/LRs, view own commissions and statements.
+Hub / Ops / Warehouse
+Admin web
+Inbound GRN & tagging, putaway, stock, manifest building, crossing, outbound & dispatch.
+Driver
+Mobile app
+Trip workflow, expense capture, navigation, DRS & ePOD.
+Accountant
+Admin web
+Invoicing, To-Pay collection, agent & hire settlement, exports.
+Consignor / Consignee (Client)
+Client portal
+Quote requests, track own loads, download documents.
+
+Role-permission matrix (RBAC)
+F = full, E = edit, V = view-only, — = no access. Branch roles are additionally restricted to their own branch's records.
+Role
+Fleet/ Masters
+Booking
+Hub/ WH/ Mfst
+Ledger
+Billing/ Settle
+Admin/ RBAC
+Owner / Admin
+F
+F
+F
+F
+F
+F
+Branch Manager
+V
+F
+F
+V
+E
+—
+Booking Agent
+V
+E
+—
+—
+V*
+—
+Hub / Operations
+V
+V
+F
+—
+—
+—
+Driver (app)
+—
+V*
+V*
+—
+—
+—
+Accountant
+V
+V
+V
+V
+F
+—
+Client (portal)
+—
+V*
+—
+—
+V*
+—
+
+* Scoped views: agents see only their own bookings/commissions; drivers see only assigned trips/LRs; clients see only their own loads and documents.
+3.  Solution Architecture & E2E Flow
+Logical components
+Admin Web App — React/Next.js SPA for owner, branch, ops, accounts.
+Driver Mobile App — Android/iOS (offline-first; local store + sync engine).
+Client Portal — Lightweight web app, scoped auth.
+Core API & Services — Booking, Manifest, Ledger, Billing, RBAC, Notifications microservices.
+Integration layer — GPS, FASTag, WhatsApp/SMS, OCR, GST e-way bill, Maps, Payments adapters.
+Data store — Transactional DB + object storage for images/PDFs + analytics store.
+The diagram below shows the end-to-end operational pipeline. Goods are tagged at inbound and tracked by barcode/QR through putaway, manifest, crossing and outbound. Stages 2-3 and 6-7 (inbound/manifest and crossing/outbound) are PTL warehouse/hub operations; FTL skips consolidation but still uses inbound tagging when goods are godown-received. Swimlanes indicate the actor and where automations fire.
+
+Figure 1 — Unified FTL + PTL end-to-end operations flow with actor swimlanes
+Order-to-cash & compliance flow
+Wrapping the operational pipeline is the commercial and statutory lifecycle: a quotation becomes an order/indent, a vehicle is sourced (own or hired), goods are weighed and loaded, and after delivery the physical POD triggers a GST-compliant invoice, collection and settlement. The overlay below shows where statutory events (e-way bill, e-invoice/IRN, RCM/GTA, TDS) and cash events (driver advance, balance to owner, branch remittance) occur.
+
+Figure 2 — Order-to-cash and compliance lifecycle, with statutory and cash events
+4.  Core Data Model
+The model is anchored on two transactional records — Trip (FTL) and Consignment/LR (PTL and FTL) — linked to a shared set of master entities and to a multi-party Ledger. Key entities and their principal attributes:
+Master entities
+Entity
+Key attributes
+Notes
+Organization / Branch
+name, GSTIN, address, parent_id, type(HO/branch/hub)
+Head Office to Branch to Hub hierarchy; lanes between hubs; P&L rolls up.
+Truck
+reg_no, RC, insurance_exp, fitness_exp, permit, capacity_kg/cft, ownership(own/attached), owner_id
+Expiry fields drive compliance alerts.
+Driver
+name, licence_no, licence_exp, aadhaar(masked), phone, otp_status
+Phone is OTP login identity.
+Vehicle Owner
+name, pan, bank, default_hire_terms, ledger_id
+For attached / market (hired) lorries.
+Party
+name, type(consignor/consignee/client), gstin, address, credit_terms
+Reused across LRs and invoices.
+Agent / Broker
+name, type(booking/delivery/commission), commission_card, parent_broker_id
+Supports sub-broker hierarchy.
+Rate Card
+agent_id, lane, article_type, weight_slab, rate, volumetric_factor, surcharges
+Drives auto-rating at booking.
+Warehouse / Godown
+branch_id, name, area_sqft, capacity, bin_count
+Physical store attached to a branch/hub.
+Storage Bin / Rack
+warehouse_id, code, zone, capacity, occupancy
+Putaway location for tagged material.
+Customer Contract
+party_id, rate_contract, credit_limit, credit_days, sla
+Governs pricing, credit and SLA per client.
+
+Transactional entities
+Entity
+Key attributes
+Relationships
+Trip (FTL)
+origin, dest, contract_rate, truck_id, driver_id, odo_start/end, status
+1 Trip ↔ 1 LR (FTL); has Expenses, POD, Ledger.
+Consignment / LR
+branch, consignor, consignee, articles, actual_wt, charge_wt, private_mark, said_to_contain, freight_terms, eway_bill, value, freight_amt, status
+Belongs to Manifest leg(s) (PTL) or Trip (FTL).
+Manifest
+lane(origin→dest hub), vehicle_id, driver_id, status, totals
+Many LRs per manifest; crossing creates new leg.
+Expense
+ref(trip/lr), type(fuel/toll/batta/maint/hamali/misc), amount, source(ocr/fastag/manual), verified
+Feeds the Ledger.
+Receipt / TollTxn
+image, ocr_amount, confirmed_amount / plaza, amount, ts
+OCR & FASTag provenance for expenses.
+Ledger Entry
+party/agent/owner_id, dr/cr, amount, ref_type, ref_id
+Multi-party; basis for P&L and settlement.
+Invoice / Settlement
+client/agent/owner, period, lines, amount, gst/rcm, tds, irn, advance, balance, deductions, status
+Reconciled against Ledger; carries GST/RCM, TDS and e-invoice IRN.
+GRN (Goods Receipt)
+warehouse_id, against_lr, consignor, received_qty, status
+Inbound receipt; spawns material tags.
+Material Tag
+grn_id, lr_id, article_no, barcode_qr, weight, bin_id, status
+Per-article tag scanned through chain of custody.
+Quotation
+party_id, lane, basis, rate, validity, status
+Priced offer; converts to an order/indent.
+Order / Indent
+quotation_id, party_id, load_details, required_vehicle, status
+Confirmed customer load request.
+Weighment
+trip/lr_id, tare_wt, gross_wt, net_wt, kanta_ref
+Weighbridge slip; source of charged weight.
+Driver Advance
+driver_id, trip_id, amount, mode, reconciled_amount, status
+Imprest issued and reconciled vs expenses.
+Claim
+lr_id, type(shortage/damage), qty/value, status, settlement
+Shortage/damage claim and settlement.
+Cash Remittance
+branch_id, collected_topay, remitted_to_ho, date, status
+Branch collection and remittance to head office.
+POD / Document
+ref_lr/trip, photo, signature, type(eway/inv/pod/rc), file, ts
+Surfaced in client portal repository.
+
+Key relationships
+FTL: Trip 1—1 LR. PTL: Manifest 1—* LR; an LR can traverse multiple manifest legs via crossing (LR—* ManifestLeg).
+Trip/Manifest —* Expense; Expenses aggregate into one or more Ledger entries.
+LR/Trip —* Document (e-way bill, invoice, POD); documents are client-portal visible when scoped to the party.
+Agent/VehicleOwner/Party each own a Ledger; settlement nets debits and credits per cycle.
+Branch hierarchy: Head Office 1-* Branch; a Branch may act as a Hub and/or own Warehouse(s); Warehouse 1-* Storage Bin.
+Warehousing: GRN 1-* Material Tag; each tag binds an article to its LR and private mark and is scanned at putaway, manifest, crossing and delivery.
+Order-to-cash: Quotation 1-* Order/Indent; an Order spawns a Trip or LRs; delivery + physical POD triggers Invoice, then Collection and Settlement.
+Cash: a Driver Advance reconciles against trip Expenses; branch To-Pay collection rolls up to a Cash Remittance to Head Office.
+Compliance: an Invoice carries GST/RCM and TDS and an e-invoice IRN; the e-way bill links to the LR/Trip.
+5.  Functional Modules & Requirements
+Requirements use MoSCoW priority (Must / Should / Could). IDs are traceable (FR-<module>.<n>).
+M1 — Fleet & Compliance Management
+Manage owned and attached vehicles and drivers with proactive compliance alerts.
+ID
+Requirement
+Pri
+FR-1.1
+CRUD trucks with RC, insurance, fitness, permit, capacity and ownership (own/attached).
+M
+FR-1.2
+CRUD drivers with licence, Aadhaar (masked), phone; licence expiry tracked.
+M
+FR-1.3
+Configurable expiry alerts (lead days) to dashboard Action Center + WhatsApp.
+M
+FR-1.4
+Vehicle-owner master for attached/market lorries with default hire terms.
+S
+FR-1.5
+Document upload per truck/driver (RC, insurance, licence images).
+S
+FR-1.6
+Track PUC, road tax, national-permit authorisation and driver police-verification expiries.
+S
+
+M2 — Masters & Rate Engine
+Single source of truth for parties, agents and pricing; powers auto-rating at booking.
+ID
+Requirement
+Pri
+FR-2.1
+Party master (consignor/consignee/client) with GSTIN and credit terms.
+M
+FR-2.2
+Agent/broker master with type, commission rate card and sub-broker hierarchy.
+M
+FR-2.3
+Rate master by agent × lane × article × weight-slab; volumetric factor; surcharges.
+M
+FR-2.4
+Branch/hub master with defined line-haul lanes between hubs.
+M
+FR-2.5
+Auto-rate service callable from booking with manual override (audited).
+M
+FR-2.6
+Customer rate contracts with credit limit and credit period; block bookings over limit.
+S
+
+M3 — Booking (FTL + PTL)
+One screen books either an FTL trip or a PTL consignment (LR).
+ID
+Requirement
+Pri
+FR-3.1
+Toggle FTL trip vs PTL consignment within a single booking screen.
+M
+FR-3.2
+LR capture: articles, actual+chargeable weight, private mark, said-to-contain, freight terms (To-Pay/Paid/TBB), e-way bill, value.
+M
+FR-3.3
+FTL trip capture: contract rate, truck and driver assignment.
+M
+FR-3.4
+Auto-rate from rate master with override + audit trail.
+M
+FR-3.5
+Generate bilty/LR PDF and link GST e-way bill.
+M
+FR-3.6
+Multi-LR booking ('add another LR') and save-to-manifest.
+S
+
+M4 — Hub & Manifest / Line-haul (PTL)
+Consolidate consignments onto vehicles, manage hub stock and transshipment.
+ID
+Requirement
+Pri
+FR-4.1
+Hub stock register: incoming, outgoing and pending-for-connection LRs.
+M
+FR-4.2
+Manifest builder: select LRs for a lane and assign a vehicle/driver.
+M
+FR-4.3
+Capacity & utilisation check by weight/volume against vehicle.
+S
+FR-4.4
+Crossing/transshipment: move an LR onto a new manifest leg at an intermediate hub.
+M
+FR-4.5
+Generate manifest PDF; dispatch triggers trip start + client notifications.
+M
+
+M5 — Warehousing & Material Tagging
+Inbound receipt, per-article barcode/QR tagging, putaway, stock and outbound pick — the bridge between booking and manifest.
+ID
+Requirement
+Pri
+FR-5.1
+Create GRN (Goods Receipt) against an LR; reconcile received vs booked articles.
+M
+FR-5.2
+Generate a barcode/QR Material Tag per article, bound to the LR and its private mark.
+M
+FR-5.3
+Putaway: scan a tag to a storage bin/rack; maintain bin occupancy.
+M
+FR-5.4
+Stock register per warehouse: in-hand, pending-connection and aged stock.
+S
+FR-5.5
+Outbound pick: scan-out tags against a manifest; update stock and the load list.
+M
+FR-5.6
+Chain-of-custody scans at putaway, manifest, crossing and delivery; shortage detection.
+S
+
+M6 — Dispatch & Live Tracking
+Real-time fleet visibility and ETA-driven automation.
+ID
+Requirement
+Pri
+FR-6.1
+Live map of all vehicles via GPS provider API (Trackier/LocoNav/Teltonika).
+M
+FR-6.2
+Geofenced ETA and '10 km from delivery' trigger.
+M
+FR-6.3
+Trip/manifest state-machine transitions with timestamps.
+M
+
+M7 — Driver Mobile App
+Offline-first field app; the primary data-capture surface.
+ID
+Requirement
+Pri
+FR-7.1
+Mobile-OTP login (no passwords).
+M
+FR-7.2
+Trip workflow Start → In-transit → End with odometer + photo capture.
+M
+FR-7.3
+Camera expense capture with OCR amount and manual confirmation.
+M
+FR-7.4
+Offline data entry queued locally with auto-sync and conflict handling.
+M
+FR-7.5
+One-tap Google Maps navigation to pickup/drop.
+M
+FR-7.6
+PTL Delivery Run Sheet with per-LR ePOD (photo + signature).
+M
+
+M8 — Digital Ledger & Profitability
+The differentiator: automatic, provenance-tagged P&L at every level.
+ID
+Requirement
+Pri
+FR-8.1
+Auto net profit per FTL trip = revenue − (fuel + tolls + batta + maintenance + misc).
+M
+FR-8.2
+PTL per-LR profit: allocate shared manifest costs by chargeable weight.
+M
+FR-8.3
+Roll-up P&L: LR → manifest/trip → branch → company.
+M
+FR-8.4
+Input provenance tags (OCR / FASTag / manual) and verification status.
+S
+FR-8.5
+Lane profitability analytics with loss flagging (e.g. empty backhaul).
+S
+
+M9 — Billing & Settlement
+Dual-side: bill clients on one side, settle agents and hired owners on the other.
+ID
+Requirement
+Pri
+FR-9.1
+Consolidated periodic client invoicing across multiple LRs, with GST.
+M
+FR-9.2
+To-Pay / Paid / TBB tracking, collection and overdue ageing.
+M
+FR-9.3
+Agent commission settlement and statement; sub-broker split.
+M
+FR-9.4
+Hired lorry-owner settlement: hire, advance, balance-on-POD, deductions.
+M
+FR-9.5
+Reconcile both sides against trip/LR ledger; show net position.
+M
+
+M10 — Client Portal
+Enterprise-grade visibility for the SMB's own customers.
+ID
+Requirement
+Pri
+FR-10.1
+Public 'Request a Quote' form (origin, destination, weight, material).
+M
+FR-10.2
+Consignor/consignee login scoped to their own loads.
+M
+FR-10.3
+Live ETA on active shipments.
+M
+FR-10.4
+Document repository: download e-way bill, invoice, signed POD.
+M
+
+M11 — Automation & Integrations
+External rails that remove manual entry and fraud.
+ID
+Requirement
+Pri
+FR-11.1
+WhatsApp/SMS alerts on dispatch, 10 km from delivery, and POD upload.
+M
+FR-11.2
+OCR for fuel/toll receipts (Google Vision or equivalent).
+S
+FR-11.3
+FASTag API: pull live toll deductions into the trip expense sheet.
+S
+FR-11.4
+GST e-way bill API (NIC/GSP) for generation/linking.
+S
+FR-11.5
+GPS provider integration for live location and history.
+M
+FR-11.6
+Payment gateway / UPI for To-Pay, advance and balance flows.
+C
+
+M12 — Reports & Dashboards
+Owner cockpit and operational reporting.
+ID
+Requirement
+Pri
+FR-12.1
+Owner dashboard: KPIs, live map, Action Center, daily P&L.
+M
+FR-12.2
+Branch P&L, agent statements, vehicle utilisation, receivables ageing.
+S
+FR-12.3
+Exportable reports (PDF/Excel) and Tally/GST data export.
+S
+
+M13 — Admin, RBAC & Audit
+Governance across a multi-branch organization.
+ID
+Requirement
+Pri
+FR-13.1
+Role-based access control per module and branch.
+M
+FR-13.2
+Audit trail on rate overrides, settlements and deletions.
+M
+FR-13.3
+Multi-branch organization hierarchy and lane configuration.
+M
+
+Commercial & compliance modules
+The following modules extend the platform across the order-to-cash and statutory lifecycle identified in the operational review.
+M14 — Quotation, Order & Vehicle Sourcing
+Front-of-trip commercial pipeline from enquiry to a confirmed, vehicle-assigned order.
+ID
+Requirement
+Pri
+FR-14.1
+Capture enquiry and issue a quotation (lane, basis, rate, validity).
+M
+FR-14.2
+Convert a quotation to an Order/Indent on customer confirmation.
+M
+FR-14.3
+Vehicle sourcing: assign an own truck or raise a placement indent to a broker for a market vehicle.
+M
+FR-14.4
+Record vehicle placement/reporting and convert the order into a booking (Trip/LR).
+S
+FR-14.5
+Quotation pipeline view with follow-ups and win/loss tracking.
+C
+
+M15 — Statutory Billing (GST / RCM / TDS / e-Invoice)
+India-compliant invoicing for a Goods Transport Agency.
+ID
+Requirement
+Pri
+FR-15.1
+Generate GST-compliant invoices with CGST/SGST/IGST and HSN/SAC.
+M
+FR-15.2
+Handle GTA reverse charge (RCM): flag forward-charge vs RCM per customer.
+M
+FR-15.3
+Generate e-invoice IRN/QR via the IRP for B2B invoices above threshold.
+M
+FR-15.4
+Track TDS (194C) deducted by customers and reconcile against receipts.
+M
+FR-15.5
+Validate customer GSTIN; consignment-note format compliant with GST.
+S
+FR-15.6
+Capture declared value and transit-insurance / owner-risk vs carrier-risk basis.
+S
+
+M16 — Cash & Advance Management
+Closes the field-cash loop across drivers and branches.
+ID
+Requirement
+Pri
+FR-16.1
+Issue a driver trip advance (imprest); record mode and amount.
+M
+FR-16.2
+Reconcile the advance against captured fuel/toll/misc expenses; settle the balance.
+M
+FR-16.3
+Branch petty cash and daily To-Pay collection register.
+M
+FR-16.4
+Remit branch collections to Head Office; track remittance status.
+M
+FR-16.5
+Optional fixed-cost allocation (EMI, driver salary, insurance, overhead) for true P&L.
+S
+
+M17 — Claims, Returns & POD
+Exception handling and the physical-POD-to-billing trigger.
+ID
+Requirement
+Pri
+FR-17.1
+Raise shortage/damage claims against an LR with quantity/value.
+M
+FR-17.2
+Claim workflow: assessment, deduction/settlement and link to insurance.
+S
+FR-17.3
+Undelivered / Return-to-Origin (RTO) handling and rebooking.
+M
+FR-17.4
+Physical POD lifecycle: received at branch, couriered, linked to invoice.
+M
+FR-17.5
+Detention/demurrage capture and billing as accessorial charges.
+S
+
+6.  End-to-End Operational Workflows
+6.1  FTL trip lifecycle
+Created → Assigned (truck+driver) → Started (odometer+photo) → In-transit (GPS, FASTag, expense capture) → Delivered (POD) → Closed (auto P&L) → Invoiced → Settled. Automations: WhatsApp 'Dispatched' on start; '10 km' on geofence; 'POD uploaded' on delivery; FASTag tolls stream into the ledger throughout.
+6.2  PTL consignment lifecycle
+Booked (LR at origin branch) → Inbound (GRN + per-article barcode/QR tag + putaway to bin) → At Hub → Manifested (picked from bins, consolidated to a vehicle for a lane) → In-transit → [Crossing → re-scan → Manifested]* (zero or more transshipments) → Outbound pick (scan-out) → Out for Delivery (DRS) → Delivered (per-LR ePOD) → Billed. Shared line-haul costs are allocated to each LR by chargeable weight when the leg closes.
+6.3  Hired-vehicle (broker) settlement flow
+Lorry Hire Note created with agreed hire (bhada) → Advance paid at loading → vehicle runs the trip/manifest → Balance becomes due on POD, net of deductions (shortages, late delivery, mamool as misc) → Settled, posted to the vehicle-owner ledger. Booking/delivery-agent commissions settle on a parallel cycle against amounts they collected for the HO.
+6.4  Warehousing inbound / outbound (material tagging)
+Inbound: a GRN is raised against the LR; each article is tagged with a barcode/QR bound to the LR and its private mark, then put away to a storage bin. Outbound: a pick list is generated from the manifest and tags are scanned out and loaded. The same tag is scanned at putaway, manifest, crossing and delivery — giving full chain of custody and automatic shortage detection. FTL goods received into a godown before loading use the same inbound tagging.
+6.5  Quotation to order to vehicle sourcing
+Enquiry -> Quotation (rate, validity) -> customer confirms -> Order/Indent -> vehicle sourcing (own truck assigned, or a placement indent raised to a broker for a market lorry) -> vehicle reported/placed -> Booking (a Trip for FTL, or LRs for PTL). GSTIN and vehicle (VAHAN) / driver (Sarathi) details are validated during sourcing.
+6.6  Order-to-cash: physical POD to collection
+On delivery the ePOD is captured and the physical signed POD travels back to the branch. Receipt of the physical POD triggers the GST invoice (forward-charge or RCM as applicable, with an e-invoice IRN), To-Pay collection at the delivery branch, and TDS reconciliation when the customer deducts 194C. Collections are remitted from the branch to Head Office.
+6.7  Driver advance (imprest) reconciliation
+A trip advance is issued to the driver; fuel, toll and misc expenses captured in the app draw down against it; on trip close the advance is reconciled to actuals and the balance recovered or topped up, posting to the driver ledger.
+6.8  Claims & returns
+Shortage or damage noted at delivery raises a claim against the LR (quantity/value), routed for assessment and deduction/settlement or an insurance claim. Undelivered consignments follow a Return-to-Origin path with rebooking; detention and demurrage are captured as accessorial charges.
+6.9  State enumerations
+Object
+States
+Trip (FTL)
+Created · Assigned · Started · InTransit · Delivered · Closed · Invoiced · Settled
+Consignment (LR)
+Booked · AtHub · Manifested · InTransit · Crossing · OutForDelivery · Delivered · Billed
+Manifest
+Draft · Dispatched · InTransit · Arrived · Offloaded · Closed
+Material Tag
+Tagged · PutAway · Picked · Loaded · InTransit · Delivered
+GRN
+Open · Reconciled · Closed
+Settlement
+Pending · AdvancePaid · BalanceDue · Settled
+Quotation
+Draft · Sent · Won · Lost · Expired
+Order / Indent
+Confirmed · VehicleAssigned · Booked · Closed
+Driver Advance
+Issued · PartlyReconciled · Reconciled · Recovered
+Claim
+Raised · UnderReview · Settled · Rejected
+Invoice
+Draft · IRN-Generated · Sent · PartPaid · Paid
+
+7.  UI / UX — Screen Inventory & Wireframes
+The following annotated wireframes specify the primary screens for end-to-end operation by the SMB owner and their team. They are layout/intent references, not pixel-final designs.
+#
+Screen
+Role
+Purpose
+1
+Owner Dashboard
+Owner/Admin
+KPIs, live map, Action Center, daily P&L, recent bookings.
+2
+Unified Booking
+Agent/Branch
+Create FTL trip or PTL LR with auto-rating.
+3
+Hub & Manifest
+Hub/Ops
+Consolidate LRs onto a vehicle; dispatch.
+4
+Digital Ledger
+Owner/Accounts
+Drill-down P&L; per-LR allocation; lane analytics.
+5
+Billing & Settlement
+Accountant
+Dual-side: client, agent, lorry owner.
+6
+Driver App
+Driver
+Trip workflow, expense OCR, DRS & ePOD.
+7
+Client Portal
+Client
+Track loads, live ETA, document downloads.
+8
+Masters
+Owner/Admin
+HO → branch → hub → warehouse, agents/brokers, rate cards.
+9
+Warehouse
+Hub/Ops
+Inbound GRN, barcode/QR tagging, putaway, stock, outbound pick.
+
+Screen 1 — Owner Dashboard
+Single cockpit: five KPI tiles (active trips split FTL/PTL, open LRs, MTD net profit, To-Pay to collect, compliance alerts), a live fleet map, an Action Center (expiries, overdue To-Pay, unassigned manifests), a daily P&L snapshot and a recent-bookings table that tags each row FTL or PTL.
+
+Figure 3 — Owner Dashboard — operational cockpit
+Screen 2 — Unified Booking (FTL / PTL)
+A single screen with an FTL/PTL toggle. PTL mode captures the full LR (articles, actual & chargeable weight, private mark, said-to-contain, freight terms, e-way bill) and auto-rates from the rate master; the right rail shows the rate breakdown and lets the user assign the LR to a manifest/vehicle. FTL mode collapses to a single contract-rate trip.
+
+Figure 4 — Unified Booking — PTL consignment with auto-rating and manifest assignment
+Screen 3 — Hub & Manifest
+Left: pending LR stock at the hub (filterable by destination corridor) with multi-select. Right: the manifest builder — assign vehicle/driver, see selected LRs, running totals, capacity utilisation, then generate the manifest PDF and dispatch. Dispatch starts the driver-app trip and fires the 'Dispatched' WhatsApp to all consignors on the manifest.
+
+Figure 5 — Hub & Manifest — PTL consolidation and dispatch
+Screen 4 — Digital Ledger
+Breadcrumb drill-down (Company → Branch → Trip → LR). The trip card itemizes revenue and each cost with provenance (OCR/FASTag/manual), yields net profit and margin per km, and — for PTL — allocates the manifest's shared costs to each LR by chargeable weight. A lane-profitability strip flags loss-making trips (e.g. empty backhaul).
+
+Figure 6 — Digital Ledger — drill-down P&L with PTL per-LR allocation
+Screen 5 — Billing & Settlement
+Three parallel columns mirror the three money relationships: client invoicing & To-Pay collection; agent/broker commission (including sub-broker split); and hired lorry-owner settlement (hire, advance, balance-on-POD, deductions). A bottom strip shows the net receivable/payable position, all reconciled against the trip/LR ledger.
+
+Figure 7 — Billing & Settlement — dual-side reconciliation
+Screen 6 — Driver App
+Three core mobile screens: the trip workflow (Start/In-transit/End with odometer + photo and offline-queue indicator); expense capture (snap receipt → OCR reads the amount → driver confirms, with a low-fraud-risk check); and the PTL Delivery Run Sheet with per-LR ePOD (photo + signature). OTP login; offline-first throughout.
+
+Figure 8 — Driver App — trip workflow, OCR expense capture and ePOD
+Screen 7 — Client Portal
+The SMB's customers get an enterprise-style experience: active loads with progress and ETA, a live map for a selected consignment, and a document repository for one-click e-way bill, invoice and POD downloads — plus a public Request-a-Quote entry point.
+
+Figure 9 — Client Portal — track loads, live ETA and document repository
+Screen 8 — Masters (Head Office, Branches & Agents)
+The Masters area manages the organization backbone. The left panel renders the Head Office → Branch → Hub → Warehouse hierarchy; selecting a node opens its detail (GSTIN, type, lanes served, linked warehouse, staff). The Agents & Brokers panel manages booking/delivery/commission agents, each with a commission rate card, its own ledger and optional sub-brokers. Sub-tabs cover Parties, Rate Cards, Warehouses & Bins and Vehicle Owners.
+
+Figure 10 — Masters — organization hierarchy (HO → branch → hub → warehouse) and agent/broker management
+Screen 9 — Warehouse (Inbound / Outbound Material Tagging)
+Inbound: a GRN is created against an LR and each article is tagged with a barcode/QR and put away to a bin (occupancy shown on the rack grid). Outbound: tags are scanned out against a manifest pick list and loaded. Every tag links an article to its LR and private mark and is scanned at each handoff, tying the physical goods into the manifest and the ledger.
+
+Figure 11 — Warehouse — inbound GRN, material tagging, putaway and outbound pick
+8.  Integrations
+Capability
+Provider (examples)
+Use in LogiSync
+GPS / telematics
+Trackier, LocoNav, Teltonika
+Live map, ETA, geofence triggers, trip history.
+FASTag
+Bank/NETC FASTag API
+Live toll deductions into the trip expense sheet.
+WhatsApp / SMS
+Gupshup, Twilio, Meta WA Cloud
+Dispatch / 10 km / POD client alerts; expiry alerts.
+OCR
+Google Vision / equivalent
+Read fuel & toll receipts; anti-fraud amount match.
+GST e-way bill
+NIC / GSP
+Generate and link e-way bills to LRs.
+Maps / navigation
+Google Maps
+One-tap driver navigation; portal map.
+Payments
+Razorpay / UPI
+To-Pay collection, advance & balance to owners.
+VAHAN / Sarathi
+Govt VAHAN & Sarathi APIs
+Verify and autofill RC (vehicle) and DL (driver); block fake documents.
+GSTIN validation
+GST API / GSP
+Validate a customer GSTIN at onboarding and billing.
+e-Invoice (IRP)
+NIC IRP / GSP
+Generate e-invoice IRN and QR for B2B invoices.
+Fuel card
+IOCL / BPCL / HPCL
+Diesel as a controlled advance; statement reconciliation.
+Barcode / label printing
+Zebra / thermal label printer
+Print article material tags at warehouse inbound.
+Accounting export
+Tally / GST export
+Hand off invoices and ledgers to finance tools.
+
+All integrations sit behind an adapter layer so providers can be swapped per region or cost without touching core logic.
+9.  Non-Functional Requirements
+Offline-first - driver app must fully function in shadow zones; queued writes sync with deterministic conflict resolution (last-writer-wins per field + server reconciliation for ledger).
+Performance - dashboard and live map refresh within ~2-3 s for up to ~50 vehicles; ledger recompute on trip close is near-instant.
+Security & privacy - OTP auth, role/branch RBAC, encryption in transit and at rest, Aadhaar masking, signed URLs for documents.
+Scalability - multi-branch, multi-tenant ready; horizontal scale of API and notification workers.
+Reliability - notification and FASTag/OCR jobs are retried idempotently; no double-posting to the ledger.
+Localization - Hindi + key regional languages in the driver app; Indian number/Rs formatting; low-bandwidth assets.
+Auditability - immutable audit log for rate overrides, settlements, deletions and permission changes.
+10.  Release Phasing
+Phase
+Theme
+Scope
+1
+FTL MVP
+Fleet & compliance, quotation->order, FTL booking, driver-app core + trip advance, GPS live map, FTL Digital Ledger, basic GST invoice, owner dashboard, WhatsApp 'Dispatched'.
+2
+PTL & warehousing
+Masters & rate engine, PTL booking/LR, warehouse inbound/outbound tagging & putaway, hub stock, manifest & crossing, DRS/ePOD, per-LR allocation, branch roll-up.
+3
+Statutory billing & client
+Statutory billing (GST/RCM/TDS, e-invoice IRP), To-Pay, physical-POD to collection, branch cash remittance, agent & hired-owner settlement, claims & returns, client portal, OCR, FASTag, e-way bill, VAHAN/Sarathi/GSTIN verification.
+4
+Ecosystem & optimisation
+Payments/UPI, fuel cards, fixed-cost profitability, tyre & preventive maintenance, owner mobile app, financing, fuel & insurance offers, advanced analytics & MIS, accounting integrations.
+
+11.  Glossary of Trade Terms
+Term
+Meaning
+LR / GR / Bilty / CN
+Lorry Receipt / Goods Receipt / Consignment Note - the core legal receipt for booked goods.
+Challan
+Generic note: booking/loading challan, delivery challan, or truck challan (lorry hire note).
+Private mark
+Shipper's identifying mark on each package for hub sorting and delivery matching without opening.
+GRN
+Goods Receipt Note - records articles received into a warehouse against an LR.
+Material tag
+Per-article barcode/QR bound to the LR and private mark; scanned through the chain of custody.
+Putaway / Bin
+Placing tagged goods into a storage bin/rack location in the warehouse.
+Godown
+Warehouse / storage shed at a branch or hub.
+Articles
+Count of physical packages in a consignment.
+Chargeable weight
+Higher of actual and volumetric weight; basis for PTL freight.
+To-Pay / Paid / TBB
+Freight terms: paid by consignee on delivery / prepaid / to-be-billed on monthly credit.
+BOD
+Basis of Delivery - customer pays after partial delivery before the balance is released.
+Hamali
+Loading/unloading labour charge, usually recovered from the customer.
+Bhada / Hire
+Freight paid to a hired (attached/market) lorry owner.
+Advance & Balance
+Lorry owner paid an advance at loading and balance at unloading against POD.
+Manifest / Trip sheet
+Document tying many LRs to one vehicle for a line-haul leg.
+Crossing / Transshipment
+Moving consignments between vehicles at a hub en route.
+DRS
+Delivery Run Sheet - destination delivery list for a vehicle/area.
+ePOD
+Electronic Proof of Delivery (photo + signature).
+Mamool
+Customary informal/incidental payments en route; tracked as a misc expense.
+Kanta / Dharam kanta
+Weighbridge; source of chargeable weight.
+Detention / Halting
+Charges for vehicle/goods held beyond free time.
+Quotation / Indent
+Priced offer to a customer; the indent/order is the confirmed load request that follows.
+GTA / RCM
+Goods Transport Agency; under GST, freight is often taxed by reverse charge (the recipient pays).
+TDS (194C)
+Tax deducted at source by customers on freight payments; reconciled against receipts.
+e-Invoice / IRN
+GST e-invoice with an Invoice Reference Number from the IRP, required for B2B above threshold.
+Imprest / Trip advance
+Cash advanced to a driver for trip expenses, reconciled against actuals.
+RTO (Return to Origin)
+An undelivered consignment returned to the booking point for rebooking.
+VAHAN / Sarathi
+Government portals/APIs for vehicle (RC) and driving-licence verification.
+
+End of document - LogiSync BSAR (FTL + PTL) v1.0. Wireframes are intent references for build planning.

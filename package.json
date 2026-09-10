@@ -1,0 +1,42 @@
+{
+  "name": "temp",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "admin-dashboard",
+    "driver-app",
+    "client-portal",
+    "manager-portal",
+    "hub-portal",
+    "accountant-portal"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace admin-dashboard",
+    "dev:driver": "npm run dev --workspace driver-app",
+    "dev:client": "npm run dev --workspace client-portal",
+    "dev:manager": "npm run dev --workspace manager-portal",
+    "dev:hub": "npm run dev --workspace hub-portal",
+    "dev:accountant": "npm run dev --workspace accountant-portal",
+    "start:backend": "npm start --workspace backend"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0",
+    "lucide-react": "^1.18.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-tools": "^15.22.1",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12"
+  }
+}
