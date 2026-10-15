@@ -39,7 +39,7 @@ router.post('/', async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
       [
         id, origin, destination, contract_rate, truck_no, driver_id, driver_name,
-        odo_start || null, odo_end || null, status || 'Started', start_date, driver_advance || 0, lorry_receipt_no || null
+        odo_start || null, odo_end || null, status || 'Assigned', start_date, driver_advance || 0, lorry_receipt_no || null
       ]
     );
     const newTrip = { ...rows[0], expenses: [] };
@@ -154,4 +154,21 @@ router.patch('/:tripId/expenses/:expenseId', async (req, res) => {
   }
 });
 
+// Delete a trip
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM expenses WHERE trip_id = $1', [id]);
+    const { rowCount } = await pool.query('DELETE FROM trips WHERE id = $1', [id]);
+    if (rowCount === 0) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    res.json({ message: 'Trip deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database deletion failed' });
+  }
+});
+
 export default router;
+

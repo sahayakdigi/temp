@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Calculator, Truck, Layers, FileSignature, CheckCircle, ArrowRight, Info, Plus, Trash2, Printer, X, ShieldCheck, MessageSquare, Send, UserCheck, Download, Loader2 } from 'lucide-react';
+import { FileText, Calculator, Truck, Layers, FileSignature, CheckCircle, ArrowRight, Info, Plus, Trash2, Printer, X, ShieldCheck, MessageSquare, Send, UserCheck, Download, Loader2, AlertTriangle, Search } from 'lucide-react';
 import GlossaryTooltip from '../components/GlossaryTooltip';
 import { GLOSSARY } from '../components/glossaryData';
 import { api } from '../services/api';
@@ -27,6 +27,84 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
   const [declaredVal, setDeclaredVal]   = useState(500000);
   const [freightAmt, setFreightAmt]     = useState(0);
   const [rateOverridden, setRateOverridden] = useState(false);
+
+  // --- Cancel / Delete Consignment Load States ---
+  const [loadToDelete, setLoadToDelete] = useState(null);
+  const [isDeletingLoad, setIsDeletingLoad] = useState(false);
+  const [loadSearchQuery, setLoadSearchQuery] = useState('');
+  const [loadFilterType, setLoadFilterType] = useState('ALL');
+
+  const handleConfirmDeleteLoad = async () => {
+    if (!loadToDelete) return;
+    setIsDeletingLoad(true);
+    try {
+      const lrNo = loadToDelete.lrNo;
+      const tripId = loadToDelete.tripId;
+      
+      await api.deleteLoad({ lrNo, tripId });
+      
+      if (lrNo && setLrs) {
+        setLrs(prev => prev.filter(l => (l.lrNo || l.lr_no) !== lrNo));
+      }
+      if (tripId && setTrips) {
+        setTrips(prev => prev.filter(t => t.id !== tripId && t.lorryReceiptNo !== lrNo));
+      } else if (lrNo && setTrips) {
+        setTrips(prev => prev.filter(t => t.lorryReceiptNo !== lrNo));
+      }
+      
+      setSuccessMsg(`Consignment ${lrNo} ${tripId ? `& Trip ${tripId}` : ''} successfully cancelled and purged from database.`);
+      setLoadToDelete(null);
+    } catch (err) {
+      alert(`Failed to delete load: ${err.message}`);
+    } finally {
+      setIsDeletingLoad(false);
+    }
+  };
+
+  const recentLoads = React.useMemo(() => {
+    return (lrs || []).map(lr => {
+      const lrNum = lr.lrNo || lr.lr_no;
+      const matchingTrip = (trips || []).find(t => 
+        t.lorryReceiptNo === lrNum || 
+        t.id === lr.tripId || 
+        (lr.vehicleNo && t.truckNo === lr.vehicleNo && t.origin === lr.origin && t.destination === lr.destination)
+      );
+      const isFtlLoad = !!matchingTrip || !!lr.vehicleNo;
+      return {
+        lr,
+        trip: matchingTrip || null,
+        lrNo: lrNum,
+        isFtl: isFtlLoad,
+        tripId: matchingTrip ? matchingTrip.id : null,
+        date: lr.date || lr.start_date || (matchingTrip ? matchingTrip.startDate : 'Recent'),
+        origin: lr.origin,
+        destination: lr.destination,
+        vehicleNo: matchingTrip?.truckNo || lr.vehicleNo || 'N/A',
+        driverName: matchingTrip?.driverName || 'N/A',
+        articles: lr.articles,
+        chargeWt: lr.chargeWt || lr.charge_wt || lr.actualWt || 0,
+        freight: matchingTrip?.contractRate || lr.freightAmt || lr.freight_amt || 0,
+        status: matchingTrip ? matchingTrip.status : lr.status
+      };
+    });
+  }, [lrs, trips]);
+
+  const filteredLoads = React.useMemo(() => {
+    return recentLoads.filter(load => {
+      if (loadFilterType === 'FTL' && !load.isFtl) return false;
+      if (loadFilterType === 'PTL' && load.isFtl) return false;
+      if (loadSearchQuery.trim()) {
+        const q = loadSearchQuery.toLowerCase();
+        const matchLr = (load.lrNo || '').toLowerCase().includes(q);
+        const matchTrip = (load.tripId || '').toLowerCase().includes(q);
+        const matchVeh = (load.vehicleNo || '').toLowerCase().includes(q);
+        const matchDriver = (load.driverName || '').toLowerCase().includes(q);
+        const matchRoute = `${load.origin} ${load.destination}`.toLowerCase().includes(q);
+        return matchLr || matchTrip || matchVeh || matchDriver || matchRoute;
+      }
+      return true;
+    });
+  }, [recentLoads, loadFilterType, loadSearchQuery]);
 
   // --- Broker & Commission States ---
   const [selectedBrokerId, setSelectedBrokerId] = useState('');
@@ -380,9 +458,9 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
             driverId: driverSourceType === 'custom' ? 'DRV-HIRED' : (selectedDriver || 'DRV-001'), 
             driverName: effDriverName, 
             driverPhone: effDriverPhone,
-            odoStart: 100000, 
-            odoEnd: 100000,
-            status: 'Started', 
+            odoStart: null, 
+            odoEnd: null,
+            status: 'Assigned', 
             startDate: base.date, 
             expenses: [], 
             driverAdvance: 10000, 
@@ -1405,6 +1483,288 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
 
         </div>
       </div>
+
+      {/* ── MANAGE RECENT CONSIGNMENTS & CANCEL/DELETE LOADS SECTION ── */}
+      <div className="glass-panel" style={{ marginTop: '24px', padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(0, 240, 255, 0.12)', border: '1px solid var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Layers size={18} style={{ color: 'var(--brand)' }} />
+              </div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>Recent Consignments &amp; Dispatched Loads</h3>
+              <span className="badge badge-brand" style={{ fontSize: '0.7rem' }}>{filteredLoads.length} Loads</span>
+            </div>
+            <p className="text-secondary" style={{ fontSize: '0.8rem', marginTop: '4px', marginBottom: 0 }}>
+              Review recently booked consignments, print bilties, or cancel &amp; permanently purge accidental or duplicate bookings.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Search Bar */}
+            <div style={{ position: 'relative', minWidth: '240px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search LR, Trip, Truck, Driver..."
+                value={loadSearchQuery}
+                onChange={(e) => setLoadSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 10px 7px 32px',
+                  fontSize: '0.8rem',
+                  background: 'var(--bg-void)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '8px',
+                  color: 'var(--text-primary)'
+                }}
+              />
+            </div>
+
+            {/* Filter Pills */}
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-void)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+              {[
+                { id: 'ALL', label: 'All Loads' },
+                { id: 'FTL', label: 'FTL Dispatch' },
+                { id: 'PTL', label: 'PTL Staging' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setLoadFilterType(tab.id)}
+                  style={{
+                    background: loadFilterType === tab.id ? 'var(--brand)' : 'transparent',
+                    color: loadFilterType === tab.id ? '#070b14' : 'var(--text-secondary)',
+                    fontWeight: '700',
+                    fontSize: '0.75rem',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {filteredLoads.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-void)', borderRadius: '12px', border: '1px dashed var(--border-subtle)' }}>
+            <Layers size={36} style={{ color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.5 }} />
+            <h4 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>No Consignments Found</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No bookings match the search criteria or filter.</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>LR / Bilty #</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>Type / Trip</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>Route</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>Vehicle &amp; Driver</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>Qty / Weight</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>Freight</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700' }}>Status</th>
+                  <th style={{ padding: '10px 12px', fontWeight: '700', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLoads.map((load, idx) => (
+                  <tr 
+                    key={load.lrNo || idx}
+                    style={{ 
+                      borderBottom: '1px solid var(--border-subtle)',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-elevated)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '12px' }}>
+                      <strong style={{ color: 'var(--text-primary)', display: 'block' }}>{load.lrNo}</strong>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{load.date}</span>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      {load.isFtl ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span className="badge badge-brand" style={{ fontSize: '0.65rem', alignSelf: 'flex-start' }}>FTL</span>
+                          {load.tripId && <span style={{ fontSize: '0.72rem', color: 'var(--accent-warning)', fontFamily: 'monospace' }}>{load.tripId}</span>}
+                        </div>
+                      ) : (
+                        <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)', fontSize: '0.65rem' }}>PTL Staging</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}>
+                        <span>{load.origin}</span>
+                        <span style={{ color: 'var(--brand)' }}>➔</span>
+                        <span>{load.destination}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{load.vehicleNo}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{load.driverName}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>
+                      {load.articles} pkgs • {Number(load.chargeWt).toLocaleString('en-IN')} kg
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <strong style={{ color: 'var(--accent-success)' }}>₹{Number(load.freight).toLocaleString('en-IN')}</strong>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.7rem',
+                        fontWeight: '700',
+                        background: load.status === 'InTransit' ? 'rgba(0, 240, 255, 0.15)' : load.status === 'Delivered' ? 'rgba(16, 185, 129, 0.15)' : load.status === 'Assigned' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                        color: load.status === 'InTransit' ? '#00f0ff' : load.status === 'Delivered' ? '#10b981' : load.status === 'Assigned' ? '#f59e0b' : 'var(--text-secondary)',
+                        border: '1px solid currentColor'
+                      }}>
+                        {load.status || 'Booked'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewBilty(load.lr)}
+                          title="View / Print Bilty"
+                          style={{
+                            background: 'var(--bg-void)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-primary)',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
+                          }}
+                        >
+                          <FileText size={13} style={{ color: 'var(--brand)' }} /> Bilty
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLoadToDelete(load)}
+                          title="Cancel and permanently delete load"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#ef4444',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '700'
+                          }}
+                        >
+                          <Trash2 size={13} /> Cancel Load
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── DELETE LOAD CONFIRMATION MODAL ── */}
+      {loadToDelete && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(5, 7, 12, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '24px', position: 'relative', border: '1px solid rgba(239, 68, 68, 0.4)', boxShadow: '0 20px 50px rgba(239, 68, 68, 0.25)', borderRadius: '16px', background: 'var(--bg-elevated)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', border: '1.5px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertTriangle size={24} style={{ color: '#ef4444' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>Cancel &amp; Delete Consignment?</h3>
+                <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: '700' }}>PERMANENT PURGE FROM DATABASE</span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '16px' }}>
+              You are about to cancel this booking and completely delete its records. This will remove:
+            </p>
+
+            <div style={{ background: 'var(--bg-void)', borderRadius: '10px', padding: '14px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Lorry Receipt (LR):</span>
+                <strong style={{ color: 'var(--text-primary)' }}>{loadToDelete.lrNo}</strong>
+              </div>
+              {loadToDelete.tripId && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Assigned Trip:</span>
+                  <strong style={{ color: 'var(--accent-warning)', fontFamily: 'monospace' }}>{loadToDelete.tripId}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Route:</span>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{loadToDelete.origin} ➔ {loadToDelete.destination}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Vehicle &amp; Driver:</span>
+                <span style={{ color: 'var(--text-primary)' }}>{loadToDelete.vehicleNo} • {loadToDelete.driverName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Freight Value:</span>
+                <strong style={{ color: 'var(--accent-success)' }}>₹{Number(loadToDelete.freight).toLocaleString('en-IN')}</strong>
+              </div>
+            </div>
+
+            <div style={{ padding: '10px 12px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', color: '#f87171', marginBottom: '20px', lineHeight: '1.4' }}>
+              ⚠️ <strong>Warning:</strong> This load will be purged from the central database, driver cockpit schedules, and accounting ledger. This operation cannot be reversed.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setLoadToDelete(null)}
+                disabled={isDeletingLoad}
+                style={{ padding: '8px 16px', fontSize: '0.82rem' }}
+              >
+                Keep Consignment
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteLoad}
+                disabled={isDeletingLoad}
+                className="btn-danger"
+                style={{ padding: '8px 18px', fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {isDeletingLoad ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Purging Data...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} /> Yes, Cancel &amp; Delete Load
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- PRINT BILTY (LR) PDF PREVIEW MODAL (FR-3.5) --- */}
       {previewBilty && (

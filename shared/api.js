@@ -179,8 +179,8 @@ const mapTrip = (t) => {
     truckNo: t.truck_no !== undefined ? t.truck_no : t.truckNo,
     driverId: t.driver_id !== undefined ? t.driver_id : t.driverId,
     driverName: t.driver_name !== undefined ? t.driver_name : t.driverName,
-    odoStart: t.odo_start !== undefined ? Number(t.odo_start) : (t.odoStart || 0),
-    odoEnd: t.odo_end !== undefined ? Number(t.odo_end) : (t.odoEnd || 0),
+    odoStart: (t.odo_start !== undefined && t.odo_start !== null) ? Number(t.odo_start) : (t.odoStart ? Number(t.odoStart) : null),
+    odoEnd: (t.odo_end !== undefined && t.odo_end !== null) ? Number(t.odo_end) : (t.odoEnd ? Number(t.odoEnd) : null),
     startDate: t.start_date ? t.start_date.split('T')[0] : (t.startDate || ''),
     driverAdvance: t.driver_advance !== undefined ? Number(t.driver_advance) : (t.driverAdvance || 0),
     lorryReceiptNo: t.lorry_receipt_no !== undefined ? t.lorry_receipt_no : t.lorryReceiptNo,
@@ -520,6 +520,12 @@ const mockDb = {
       return list[idx];
     }
     throw new Error('Trip not found');
+  },
+  deleteTrip: (id) => {
+    let list = mockDb.getTrips();
+    list = list.filter(t => t.id !== id);
+    setStorageItem('temp_trips', list);
+    return { success: true };
   },
   createTripExpense: (tripId, expense) => {
     const list = mockDb.getTrips();
@@ -1030,6 +1036,28 @@ export const api = {
       }).then(handleResponse).then(mapTrip),
       () => mapTrip(mockDb.updateTrip(id, updates))
     );
+  },
+  deleteTrip: (id) =>
+    callWithFallback(
+      () => fetch(`${BASE_URL}/trips/${id}`, {
+        method: 'DELETE'
+      }).then(handleResponse),
+      () => mockDb.deleteTrip(id)
+    ),
+  deleteLoad: async ({ lrNo, tripId }) => {
+    const promises = [];
+    if (tripId) {
+      promises.push(
+        api.deleteTrip(tripId).catch(err => console.warn('Could not delete trip:', err))
+      );
+    }
+    if (lrNo) {
+      promises.push(
+        api.deleteLR(lrNo).catch(err => console.warn('Could not delete LR:', err))
+      );
+    }
+    await Promise.all(promises);
+    return { success: true };
   },
   createTripExpense: (tripId, expense) => 
     callWithFallback(

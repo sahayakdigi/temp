@@ -92,36 +92,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
     const saved = localStorage.getItem('temp_approvals');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Exclude legacy mock records
+        return Array.isArray(parsed) ? parsed.filter(a => a.id !== 'APP-101' && a.id !== 'APP-102') : [];
       } catch (e) {
-        // Fallback to default
+        // Fallback to empty
       }
     }
-    return [
-      {
-        id: 'APP-101',
-        type: 'expense',
-        title: 'Fuel Receipt - IOCL Highway Oasis',
-        driverName: 'Rajesh Kumar',
-        tripId: 'TRP-2026-001',
-        amount: 22000,
-        merchant: 'Indian Oil Corporation Ltd',
-        photoUrl: '/bill_ocr.jpg',
-        status: 'approved',
-        timestamp: new Date(Date.now() - 3600000 * 2).toISOString()
-      },
-      {
-        id: 'APP-102',
-        type: 'odoStart',
-        title: 'Odometer Start Reading',
-        driverName: 'Rajesh Kumar',
-        tripId: 'TRP-2026-001',
-        odoValue: 125430,
-        photoUrl: '/odo_start_sample.jpg',
-        status: 'approved',
-        timestamp: new Date(Date.now() - 3600000 * 4).toISOString()
-      }
-    ];
+    return [];
   });
 
   const [activePendingApproval, setActivePendingApproval] = useState(null);
@@ -141,7 +119,25 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
   // ── SIMULATED LIVE GPS TRACKING & BATTERY DEPLETION ──────────────────────
   const [heading, setHeading] = useState(185);
-  const [simulatedKmProgress, setSimulatedKmProgress] = useState(1140); // Matches mockup: 1,140 km covered / 1,420 km (80%)
+  const [simulatedKmProgress, setSimulatedKmProgress] = useState(0);
+
+  useEffect(() => {
+    if (selectedTrip) {
+      const odoStart = Number(selectedTrip.odoStart) || 0;
+      const odoEnd = Number(selectedTrip.odoEnd) || 0;
+      if (selectedTrip.status === 'Delivered') {
+        setSimulatedKmProgress(1420);
+      } else if (odoStart > 0 && odoEnd > odoStart) {
+        setSimulatedKmProgress(Math.min(odoEnd - odoStart, 1420));
+      } else if (selectedTrip.status === 'InTransit') {
+        setSimulatedKmProgress(prev => (prev > 0 ? prev : 650));
+      } else {
+        setSimulatedKmProgress(0);
+      }
+    } else {
+      setSimulatedKmProgress(0);
+    }
+  }, [selectedTrip?.id, selectedTrip?.status, selectedTrip?.odoStart, selectedTrip?.odoEnd]);
 
   // Helper to push to buffer
   const queueToSqlite = (type, payload) => {
@@ -228,7 +224,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 id: `APP-START-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                 type: 'odoStart',
                 title: 'Odometer Start Photo (Synced)',
-                driverName: activeDriver?.name || 'Rajesh Kumar',
+                driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
                 tripId: payload.tripId,
                 odoValue: payload.odoStart,
                 photoUrl: '/odo_start_sample.jpg',
@@ -245,12 +241,12 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 id: `APP-EXP-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                 type: 'expense',
                 title: `Expense: ${payload.expense.type.toUpperCase()} - ₹${payload.expense.amount} (Synced)`,
-                driverName: activeDriver?.name || 'Rajesh Kumar',
+                driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
                 tripId: payload.tripId,
                 expenseType: payload.expense.type,
                 amount: payload.expense.amount,
                 merchant: payload.expense.merchant,
-                photoUrl: '/bill_ocr.jpg',
+                photoUrl: payload.expense.image_url || '/bill_ocr.jpg',
                 status: 'pending',
                 timestamp: new Date().toISOString(),
                 payload: {
@@ -263,12 +259,12 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 id: `APP-EPOD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                 type: 'epod',
                 title: `ePOD Signature & Photo (Synced)`,
-                driverName: activeDriver?.name || 'Rajesh Kumar',
-                tripId: selectedTrip?.id || 'TRP-2026-001',
+                driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
+                tripId: selectedTrip?.id || payload.tripId,
                 lrNo: payload.lrNo,
                 receiverName: payload.receiverName,
                 signatureImg: payload.podUrl,
-                photoUrl: '/pod_sample.jpg',
+                photoUrl: payload.podUrl || '/pod_sample.jpg',
                 status: 'pending',
                 timestamp: new Date().toISOString(),
                 payload: {
@@ -283,7 +279,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 id: `APP-WAYBILL-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                 type: 'waybill',
                 title: 'Waybill Document Upload (Synced)',
-                driverName: activeDriver?.name || 'Rajesh Kumar',
+                driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
                 tripId: payload.tripId,
                 photoUrl: '/pod_sample.jpg',
                 status: 'pending',
@@ -298,7 +294,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 id: `APP-END-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                 type: 'odoEnd',
                 title: 'Odometer End Photo (Synced)',
-                driverName: activeDriver?.name || 'Rajesh Kumar',
+                driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
                 tripId: payload.tripId,
                 odoValue: payload.odoEnd,
                 photoUrl: '/odo_end_sample.jpg',
@@ -330,29 +326,43 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
     setAuthError('');
     setOtpLoading(true);
 
+    const cleanPhone = loginPhone.replace(/\D/g, '');
     const foundDriver = drivers.find(
-      (d) => d.phone === loginPhone.replace(/\D/g, '')
-    ) || drivers[0];
+      (d) => (d.phone && d.phone.replace(/\D/g, '') === cleanPhone)
+    );
+
+    if (!foundDriver) {
+      setTimeout(() => {
+        setOtpLoading(false);
+        setAuthError(`No registered driver found with phone "${loginPhone}". Please enter a registered driver's phone or select one from the fleet database.`);
+      }, 500);
+      return;
+    }
 
     setTimeout(() => {
       setOtpLoading(false);
       setOtpSent(true);
       setActiveDriver(foundDriver);
       setLoginOtp('123456');
-    }, 1200);
+    }, 800);
   };
 
   const handleVerifyOtp = (e) => {
     e.preventDefault();
     setAuthError('');
     if (loginOtp !== '123456') {
-      setAuthError('Incorrect OTP. Enter 123456 for demo.');
+      setAuthError('Incorrect OTP. Please enter 123456 to verify.');
       return;
     }
-    const driverTrip = trips.find(t => t.driverId === activeDriver?.id || t.driverName?.includes(activeDriver?.name)) || trips[0];
-    setSelectedTrip(driverTrip);
+    const assignedTrips = trips.filter(t => 
+      t.driverId === activeDriver?.id || 
+      t.driver_id === activeDriver?.id || 
+      (t.driverName && activeDriver?.name && t.driverName.toLowerCase() === activeDriver?.name.toLowerCase())
+    );
+    const activeOne = assignedTrips.find(t => t.status === 'InTransit' || t.status === 'Started' || t.status === 'Assigned') || assignedTrips[0] || null;
+    setSelectedTrip(activeOne);
     setCurrentScreen('tripDetail');
-    setActiveTab('trip');
+    setActiveTab(activeOne ? 'trip' : 'home');
   };
 
   const getCanvasPos = (e) => {
@@ -430,10 +440,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         id: `APP-START-${Date.now()}`,
         type: 'odoStart',
         title: 'Odometer Start Photo',
-        driverName: activeDriver?.name || 'Rajesh Kumar',
+        driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
         tripId: selectedTrip.id,
         odoValue: odoNum,
-        photoUrl: '/odo_start_sample.jpg',
+        photoUrl: odoPhoto || '/odo_start_sample.jpg',
         status: 'pending',
         timestamp: new Date().toISOString(),
         payload: {
@@ -473,10 +483,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         id: `APP-END-${Date.now()}`,
         type: 'odoEnd',
         title: 'Odometer End Photo',
-        driverName: activeDriver?.name || 'Rajesh Kumar',
+        driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
         tripId: selectedTrip.id,
         odoValue: odoNum,
-        photoUrl: '/odo_end_sample.jpg',
+        photoUrl: odoPhoto || '/odo_end_sample.jpg',
         status: 'pending',
         timestamp: new Date().toISOString(),
         payload: {
@@ -542,9 +552,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
   const runMockOcrFallback = (fileName) => {
     setTimeout(() => {
-      let mockAmt = 0;
-      let mockMerchant = '';
-      let detectedType = expenseType;
+      let detectedType = expenseType || 'fuel';
 
       if (fileName) {
         const lowerName = fileName.toLowerCase();
@@ -559,38 +567,28 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         }
       }
 
-      if (detectedType === 'fuel') {
-        mockAmt = 18500;
-        mockMerchant = 'Indian Oil Corporation Ltd - Highway Oasis NH-44';
-      } else if (detectedType === 'toll') {
-        mockAmt = 350;
-        mockMerchant = 'L&T Tollway Plaza, Karur';
-      } else if (detectedType === 'batta') {
-        mockAmt = 1200;
-        mockMerchant = 'Dhaba Stop & Hotel Highway';
-      } else {
-        mockAmt = 850;
-        mockMerchant = 'State Electricity Utility Board';
-      }
-
-      // Try to parse amount from filename if available
+      let parsedAmt = 0;
       if (fileName) {
         const amtMatch = fileName.match(/(\d+)/);
         if (amtMatch) {
-          mockAmt = parseInt(amtMatch[1]);
+          parsedAmt = parseInt(amtMatch[1]);
         }
       }
 
       setExpenseType(detectedType);
       setOcrResult({
-        amount: mockAmt,
-        merchant: mockMerchant,
+        amount: parsedAmt,
+        merchant: '',
         detectedType: detectedType,
+        ocrText: 'Receipt photo uploaded. Please confirm or enter the merchant and amount below.',
+        legibilityScore: 75,
+        confidenceScore: 70,
+        warnings: parsedAmt ? [] : ['Please verify the expense amount and merchant name below'],
         isFraudRisk: false,
         fraudReason: ''
       });
       setOcrScanning(false);
-    }, 2000);
+    }, 1000);
   };
 
   const parseOcrText = (text, typeCategory) => {
@@ -672,13 +670,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               const parsed = parseOcrText(text, expenseType);
               
               setOcrResult({
-                amount: parsed.amount || 850,
-                merchant: parsed.merchant || 'Unknown Merchant',
+                amount: parsed.amount || 0,
+                merchant: parsed.merchant === 'Unknown Merchant' ? '' : (parsed.merchant || ''),
                 detectedType: parsed.detectedType,
                 ocrText: text,
                 legibilityScore: 85,
                 confidenceScore: 80,
-                warnings: ['Processed locally in browser (Offline OCRFallback)'],
+                warnings: parsed.amount ? [] : ['Verify or enter amount and merchant below'],
                 isFraudRisk: false,
                 fraudReason: ''
               });
@@ -700,13 +698,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             .then(({ data: { text } }) => {
               const parsed = parseOcrText(text, expenseType);
               setOcrResult({
-                amount: parsed.amount || 850,
-                merchant: parsed.merchant || 'Unknown Merchant',
+                amount: parsed.amount || 0,
+                merchant: parsed.merchant === 'Unknown Merchant' ? '' : (parsed.merchant || ''),
                 detectedType: parsed.detectedType,
                 ocrText: text,
                 legibilityScore: 80,
                 confidenceScore: 75,
-                warnings: ['Processed locally in browser (Offline OCRFallback)'],
+                warnings: parsed.amount ? [] : ['Verify or enter amount and merchant below'],
                 isFraudRisk: false,
                 fraudReason: ''
               });
@@ -727,8 +725,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
     
     setExpenseType(detectedType);
     setOcrResult({
-      amount: extractedFields?.amount || 850,
-      merchant: extractedFields?.merchant || 'Unknown Merchant',
+      amount: extractedFields?.amount || 0,
+      merchant: extractedFields?.merchant || '',
       detectedType: detectedType,
       ocrText: ocrText || 'No raw text extracted.',
       legibilityScore: legibilityScore || 100,
@@ -787,7 +785,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         id: `APP-EXP-${Date.now()}`,
         type: 'expense',
         title: `Expense: ${ocrResult.detectedType.toUpperCase()} - ₹${ocrResult.amount}`,
-        driverName: activeDriver?.name || 'Rajesh Kumar',
+        driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
         tripId: selectedTrip.id,
         expenseType: ocrResult.detectedType,
         amount: ocrResult.amount,
@@ -843,7 +841,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
       }
     }
 
-    const targetLrNo = epodLr?.lrNo || 'LR-2026-014';
+    const targetLrNo = epodLr?.lrNo || selectedTrip?.lorryReceiptNo || (lrs.find(l => l.tripId === selectedTrip?.id)?.lrNo) || 'LR-PENDING';
     const payload = {
       lrNo: targetLrNo,
       podUrl: signatureImg,
@@ -856,7 +854,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         id: `APP-EPOD-${Date.now()}`,
         type: 'epod',
         title: `ePOD Signature & Photo`,
-        driverName: activeDriver?.name || 'Rajesh Kumar',
+        driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
         tripId: selectedTrip.id,
         lrNo: targetLrNo,
         receiverName: epodSignerName,
@@ -911,7 +909,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             id: `APP-WAYBILL-${Date.now()}`,
             type: 'waybill',
             title: 'Waybill Document Upload (AI Audited)',
-            driverName: activeDriver?.name || 'Rajesh Kumar',
+            driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
             tripId: selectedTrip.id,
             photoUrl: '/pod_sample.jpg',
             status: 'pending',
@@ -952,7 +950,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             id: `APP-WAYBILL-${Date.now()}`,
             type: 'waybill',
             title: 'Waybill Document Upload',
-            driverName: activeDriver?.name || 'Rajesh Kumar',
+            driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
             tripId: selectedTrip.id,
             photoUrl: '/pod_sample.jpg',
             status: 'pending',
@@ -1089,8 +1087,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
   const isTripDelivered = selectedTrip?.status === 'Delivered';
 
   // Checklist verification states
-  const hasInspectionDone = !!selectedTrip?.odoStart;
-  const activeLrObj = selectedTrip ? lrs.find(l => l.lrNo === selectedTrip.lorryReceiptNo || !l.manifestId) : null;
+  const hasInspectionDone = !!selectedTrip?.odoStart && Number(selectedTrip.odoStart) > 0;
+  const activeLrObj = selectedTrip ? (lrs.find(l => l.lrNo === selectedTrip.lorryReceiptNo) || lrs.find(l => l.tripId === selectedTrip.id) || lrs.find(l => !l.manifestId) || lrs[0]) : null;
   const isEpodDone = activeLrObj ? getLrStatusInApp(activeLrObj.lrNo) === 'Delivered' : false;
   const hasWaybillUploaded = !!epodPhoto || isEpodDone;
   const hasCargoVerified = cargoVerified || isEpodDone;
@@ -1900,46 +1898,88 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     </p>
                   </div>
 
-                  {/* One-Tap Auto Login */}
+                  {/* Real Registered Drivers Fleet Picker */}
                   <div style={{ 
                     background: 'var(--bg-elevated)', 
                     border: '1px solid var(--border-subtle)', 
                     borderRadius: '16px', 
                     padding: '16px', 
-                    textAlign: 'center',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '10px'
                   }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--accent-warning)', letterSpacing: '1px' }}>
-                      ⚡ QUICK DEMO TESTING
-                    </span>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        const demoDriver = drivers.find(d => d.phone === '9876543210') || drivers[0] || { id: 'DRV-01', name: 'Rajesh Kumar', phone: '9876543210' };
-                        setActiveDriver(demoDriver);
-                        const driverTrip = trips.find(t => t.driverId === demoDriver.id || t.driverName?.includes(demoDriver.name)) || trips[0];
-                        setSelectedTrip(driverTrip);
-                        setCurrentScreen('tripDetail');
-                        setActiveTab('trip');
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--brand)', letterSpacing: '0.5px' }}>
+                        FLEET DRIVER LOGIN
+                      </span>
+                      <span className="badge badge-brand" style={{ fontSize: '0.62rem' }}>
+                        {drivers.length} Registered
+                      </span>
+                    </div>
+
+                    <select 
+                      value={activeDriver?.id || ''}
+                      onChange={(e) => {
+                        const sel = drivers.find(d => d.id === e.target.value);
+                        if (sel) {
+                          setActiveDriver(sel);
+                          setLoginPhone(sel.phone || '');
+                          setAuthError('');
+                        }
                       }}
-                      className="btn btn-brand"
                       style={{ 
                         width: '100%', 
-                        padding: '12px 0', 
-                        fontSize: '0.85rem',
-                        fontWeight: '800',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        cursor: 'pointer'
+                        padding: '10px 12px', 
+                        background: 'var(--bg-void)', 
+                        border: '1px solid var(--border-default)', 
+                        borderRadius: '10px', 
+                        color: 'var(--text-primary)', 
+                        fontSize: '0.82rem', 
+                        fontWeight: '600' 
                       }}
                     >
-                      <Sparkles size={14} />
-                      One-Tap Login (Rajesh)
-                    </button>
+                      <option value="">-- Select Registered Driver ({drivers.length} available) --</option>
+                      {drivers.map(d => {
+                        const dTrips = trips.filter(t => t.driverId === d.id || t.driver_id === d.id || (t.driverName && d.name && t.driverName.toLowerCase() === d.name.toLowerCase()));
+                        return (
+                          <option key={d.id} value={d.id}>
+                            {d.name} ({d.id}) - {d.phone || 'No Phone'} [{dTrips.length} Trip{dTrips.length !== 1 ? 's' : ''}]
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    {activeDriver && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const assignedTrips = trips.filter(t => 
+                            t.driverId === activeDriver.id || 
+                            t.driver_id === activeDriver.id || 
+                            (t.driverName && activeDriver.name && t.driverName.toLowerCase() === activeDriver.name.toLowerCase())
+                          );
+                          const activeOne = assignedTrips.find(t => t.status === 'InTransit' || t.status === 'Started' || t.status === 'Assigned') || assignedTrips[0] || null;
+                          setSelectedTrip(activeOne);
+                          setCurrentScreen('tripDetail');
+                          setActiveTab(activeOne ? 'trip' : 'home');
+                        }}
+                        className="btn btn-brand"
+                        style={{ 
+                          width: '100%', 
+                          padding: '10px 0', 
+                          fontSize: '0.82rem',
+                          fontWeight: '800',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <User size={14} />
+                        Login as {activeDriver.name}
+                      </button>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
@@ -2027,7 +2067,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                           <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Odometer Value (km)</label>
                           <input 
                             type="number"
-                            placeholder="e.g. 125430"
+                            placeholder={selectedTrip?.odoStart ? `Current: ${selectedTrip.odoStart}` : "e.g. 85000"}
                             value={odoValue}
                             onChange={(e) => setOdoValue(e.target.value)}
                             required
@@ -2076,7 +2116,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                           <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Ending Odometer Reading (km)</label>
                           <input 
                             type="number"
-                            placeholder={`Must exceed ${selectedTrip?.odoStart || 125430}`}
+                            placeholder={`Must exceed ${selectedTrip?.odoStart || 0}`}
                             value={odoValue}
                             onChange={(e) => setOdoValue(e.target.value)}
                             required
@@ -2542,224 +2582,260 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               {currentScreen === 'tripDetail' && (
                 <>
                   {/* TAB 1: HOME (Trip assigned lists) */}
-                  {activeTab === 'home' && (
-                    <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.5px' }}>
-                          Driver Dashboard
-                        </span>
-                      </div>
-
-                      {selectedTrip ? (
-                        <div 
-                          onClick={() => setActiveTab('trip')}
-                          style={{ 
-                            background: 'var(--bg-elevated)', 
-                            padding: '16px', 
-                            borderRadius: '16px', 
-                            border: '1.5px solid #00f0ff', 
-                            boxShadow: '0 0 10px rgba(0, 240, 255, 0.15)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '12px'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#f59e0b' }}>
-                              {selectedTrip.id}
-                            </span>
-                            <span style={{ 
-                              background: selectedTrip.status === 'InTransit' ? 'rgba(6, 182, 212, 0.15)' : selectedTrip.status === 'Delivered' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                              color: selectedTrip.status === 'InTransit' ? '#00f0ff' : selectedTrip.status === 'Delivered' ? '#10b981' : '#f59e0b',
-                              fontSize: '0.65rem',
-                              fontWeight: '800',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              border: '1px solid currentColor'
-                            }}>
-                              {selectedTrip.status === 'InTransit' ? 'IN TRANSIT' : selectedTrip.status.toUpperCase()}
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.92rem', fontWeight: '800' }}>
-                              <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.origin}</span>
-                              <span style={{ color: 'var(--brand)' }}>➔</span>
-                              <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.destination}</span>
-                            </div>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Total route: 1,420 km</span>
-                          </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', fontSize: '0.75rem' }}>
-                            <div>
-                              <span style={{ color: 'var(--text-muted)' }}>Vehicle: </span>
-                              <strong style={{ color: 'var(--text-primary)' }}>{selectedTrip.truckNo}</strong>
-                            </div>
-                            <div style={{ textAlign: 'right', color: 'var(--brand)', fontWeight: '800' }}>
-                              Inspect Trip ➔
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ textAlign: 'center', padding: '30px', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px dashed var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          No active trips assigned.
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* TAB 2: TRUCK/JOURNEY (THE PRINCIPAL UI MOCKUP VIEW) */}
-                  {activeTab === 'trip' && selectedTrip && (() => {
-                    // Computed distances and progresspct matching mockup
-                    const totalTripKm = 1420;
-                    const dynamicCoveredKm = Math.min(Math.round(simulatedKmProgress), totalTripKm);
-                    const dynamicProgressPct = Math.min(Math.round((simulatedKmProgress / totalTripKm) * 100), 100);
-                    
-                    const dynamicRemainingDistance = Math.max(totalTripKm - dynamicCoveredKm, 0);
-                    const dynamicRemainingHours = dynamicRemainingDistance / 62; // average speed
-                    const remH = Math.floor(dynamicRemainingHours);
-                    const remM = Math.round((dynamicRemainingHours % 1) * 60);
-
-                    // Truck dynamic marker coords along SVG line path
-                    const markerCoords = getTruckPos(simulatedKmProgress);
+                  {activeTab === 'home' && (() => {
+                    const driverAssignedTrips = trips.filter(t => 
+                      t.driverId === activeDriver?.id || 
+                      t.driver_id === activeDriver?.id || 
+                      (t.driverName && activeDriver?.name && t.driverName.toLowerCase() === activeDriver?.name.toLowerCase())
+                    );
 
                     return (
-                      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        
-                        {/* Driver Profile Header Section */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ position: 'relative' }}>
-                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: '800', border: '1px solid var(--border-subtle)' }}>
-                                {activeDriver?.name?.split(' ').map(n=>n[0]).join('') || 'JD'}
-                              </div>
-                              <span style={{ position: 'absolute', bottom: '0', right: '0', width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent-success)', border: '2px solid var(--bg-card)' }} />
-                            </div>
-                            <div>
-                              <h4 style={{ color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'John Doe'}</h4>
-                              <span style={{ fontSize: '0.72rem', color: 'var(--accent-success)', fontWeight: '700' }}>Active</span>
-                            </div>
-                          </div>
-                          
-                          <div style={{ position: 'relative' }}>
-                            <Bell size={18} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setActiveTab('notifications')} />
-                            {sqliteBuffer.length > 0 && (
-                              <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent-warning)' }} />
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Gold-colored active trip route description */}
-                        <div>
-                          <span style={{ color: 'var(--accent-warning)', fontSize: '0.95rem', fontWeight: '900', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                            ACTIVE TRIP: <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.origin} ➔ {selectedTrip.destination}</span>
+                      <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.5px' }}>
+                            Driver Dashboard
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--brand)', fontWeight: '700' }}>
+                            {activeDriver?.name || 'Driver'} ({driverAssignedTrips.length} Trip{driverAssignedTrips.length !== 1 ? 's' : ''})
                           </span>
                         </div>
 
-                        {/* Glowing Map Card */}
-                        <div style={{ 
-                          background: 'var(--bg-elevated)', 
-                          borderRadius: '18px', 
-                          border: '1.5px solid var(--brand)', 
-                          boxShadow: '0 0 12px var(--brand-glow)',
-                          overflow: 'hidden',
-                          position: 'relative'
-                        }}>
-                          <div style={{ padding: '8px 12px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: '700' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>TRIP ID: {selectedTrip.id}</span>
-                            <span style={{ color: 'var(--accent-warning)' }}>STATUS: {selectedTrip.status === 'InTransit' ? 'IN TRANSIT' : selectedTrip.status.toUpperCase()}</span>
+                        {driverAssignedTrips.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {driverAssignedTrips.map(trip => {
+                              const isSelected = selectedTrip?.id === trip.id;
+                              return (
+                                <div 
+                                  key={trip.id}
+                                  onClick={() => {
+                                    setSelectedTrip(trip);
+                                    setActiveTab('trip');
+                                  }}
+                                  style={{ 
+                                    background: 'var(--bg-elevated)', 
+                                    padding: '16px', 
+                                    borderRadius: '16px', 
+                                    border: isSelected ? '1.5px solid var(--brand)' : '1px solid var(--border-subtle)', 
+                                    boxShadow: isSelected ? '0 0 10px var(--brand-glow)' : 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--accent-warning)' }}>
+                                        {trip.id}
+                                      </span>
+                                      {isSelected && (
+                                        <span className="badge badge-brand" style={{ fontSize: '0.6rem', padding: '1px 6px' }}>Selected</span>
+                                      )}
+                                    </div>
+                                    <span style={{ 
+                                      background: trip.status === 'InTransit' ? 'rgba(6, 182, 212, 0.15)' : trip.status === 'Delivered' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                      color: trip.status === 'InTransit' ? '#00f0ff' : trip.status === 'Delivered' ? '#10b981' : '#f59e0b',
+                                      fontSize: '0.65rem',
+                                      fontWeight: '800',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      border: '1px solid currentColor'
+                                    }}>
+                                      {trip.status === 'InTransit' ? 'IN TRANSIT' : trip.status.toUpperCase()}
+                                    </span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.92rem', fontWeight: '800' }}>
+                                      <span style={{ color: 'var(--text-primary)' }}>{trip.origin}</span>
+                                      <span style={{ color: 'var(--brand)' }}>➔</span>
+                                      <span style={{ color: 'var(--text-primary)' }}>{trip.destination}</span>
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                      Start Odo: {trip.odoStart ? `${Number(trip.odoStart).toLocaleString()} km` : 'Not recorded'} {trip.odoEnd ? `• End: ${Number(trip.odoEnd).toLocaleString()} km` : ''}
+                                    </span>
+                                  </div>
+
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', fontSize: '0.75rem' }}>
+                                    <div>
+                                      <span style={{ color: 'var(--text-muted)' }}>Vehicle: </span>
+                                      <strong style={{ color: 'var(--text-primary)' }}>{trip.truckNo || 'N/A'}</strong>
+                                    </div>
+                                    <div style={{ textAlign: 'right', color: 'var(--brand)', fontWeight: '800' }}>
+                                      Inspect Trip ➔
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-
-                          {/* Map Graphics */}
-                          <svg width="100%" height="190" viewBox="0 0 280 190" style={{ background: 'var(--bg-void)', display: 'block' }}>
-                            {/* Grid helper dots */}
-                            <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-                              <circle cx="2" cy="2" r="0.8" fill="var(--border-subtle)" />
-                            </pattern>
-                            <rect width="100%" height="100%" fill="url(#dotGrid)" />
-
-                            {/* Background map boundaries mock */}
-                            <path d="M 230,10 L 260,35 Q 240,90 220,105 L 180,95 Q 160,110 150,135 Z" fill="none" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="3 3" />
-                            <text x="240" y="55" fill="var(--text-muted)" fontSize="9" fontWeight="bold" letterSpacing="1" opacity="0.6">Nepal</text>
-                            <text x="140" y="110" fill="var(--text-muted)" fontSize="18" fontWeight="bold" letterSpacing="3" opacity="0.4">India</text>
-
-                            {/* Glowing Neon Cyan Route Line */}
-                            <path 
-                              d="M 170,30 Q 140,55 120,70 T 105,125 T 100,175" 
-                              fill="none" 
-                              stroke="var(--brand-glow)" 
-                              strokeWidth="7" 
-                              strokeLinecap="round"
-                            />
-                            <path 
-                              d="M 170,30 Q 140,55 120,70 T 105,125 T 100,175" 
-                              fill="none" 
-                              stroke="var(--brand)" 
-                              strokeWidth="3.5" 
-                              strokeLinecap="round"
-                              style={{ filter: 'drop-shadow(0px 0px 5px var(--brand))' }}
-                            />
-
-                            {/* Waypoint markers */}
-                            <circle cx="170" cy="30" r="4.5" fill="#f59e0b" stroke="var(--bg-void)" strokeWidth="1.5" />
-                            <text x="180" y="34" fill="var(--text-primary)" fontSize="9.5" fontWeight="bold">Delhi</text>
-
-                            <circle cx="120" cy="70" r="3.5" fill="var(--text-muted)" />
-                            <text x="80" y="74" fill="var(--text-muted)" fontSize="8" fontWeight="600">Jaipur</text>
-
-                            <circle cx="105" cy="125" r="3.5" fill="var(--text-muted)" />
-                            <text x="50" y="129" fill="var(--text-muted)" fontSize="8" fontWeight="600">Vadodara</text>
-
-                            <circle cx="100" cy="175" r="4.5" fill="#10b981" stroke="var(--bg-void)" strokeWidth="1.5" />
-                            <text x="54" y="179" fill="var(--text-primary)" fontSize="9.5" fontWeight="bold">Mumbai</text>
-
-                            {/* Moving truck icon indicator */}
-                            {selectedTrip.status === 'InTransit' && (
-                              <g transform={`translate(${markerCoords.x - 10}, ${markerCoords.y - 10})`} style={{ filter: 'drop-shadow(0px 0px 6px #ff9f0a)' }}>
-                                <circle cx="10" cy="10" r="10" fill="#ff9f0a" />
-                                {/* Small truck shape inside indicator */}
-                                <path d="M5 7h7v3.5H5zm7 1.5h3L16 11H12z" fill="#070b14" />
-                                <circle cx="7" cy="12" r="1" fill="#070b14" />
-                                <circle cx="12.5" cy="12" r="1" fill="#070b14" />
-                              </g>
-                            )}
-                          </svg>
-
-                          {/* Translucent ETA banner overlay at bottom */}
-                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', padding: '6px 12px', fontSize: '0.72rem', color: 'var(--text-primary)', fontWeight: '700', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-                            ETA: {isTripDelivered ? 'Arrived at Destination' : `19 Oct, 09:30 AM (Remaining: ${remH}h ${remM}m)`}
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '36px 16px', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px dashed var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                            <Truck size={32} style={{ opacity: 0.5 }} />
+                            <strong style={{ color: 'var(--text-primary)' }}>No Assigned Trips Found</strong>
+                            <span>No active trips in the database are currently assigned to <strong>{activeDriver?.name || 'this driver'}</strong>.</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>You can assign a trip in Admin Dashboard → Trips, or select another driver.</span>
                           </div>
-                        </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
-                        {/* GPS Progress Card */}
-                        <div style={{ 
-                          background: 'var(--bg-elevated)', 
-                          borderRadius: '18px', 
-                          border: '1.5px solid var(--brand)', 
-                          boxShadow: '0 0 12px var(--brand-glow)',
-                          padding: '12px 14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '8px'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: '800' }}>
-                            <span style={{ color: 'var(--text-primary)' }}>Delhi <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '500' }}>(DEP: 17 Oct, 22:15)</span></span>
-                            <span style={{ color: 'var(--brand)', fontSize: '0.75rem' }}>➔</span>
-                            <span style={{ color: 'var(--text-primary)' }}>Mumbai <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '500' }}>(DEST)</span></span>
-                          </div>
+                  {/* TAB 2: TRUCK/JOURNEY (THE PRINCIPAL UI MOCKUP VIEW) */}
+                  {activeTab === 'trip' && (
+                    selectedTrip ? (() => {
+                      // Computed distances and progresspct matching real trip data
+                      const totalTripKm = (selectedTrip.odoEnd && selectedTrip.odoStart && selectedTrip.odoEnd > selectedTrip.odoStart) 
+                        ? (selectedTrip.odoEnd - selectedTrip.odoStart) 
+                        : 1420;
+                      const dynamicCoveredKm = Math.min(Math.round(simulatedKmProgress), totalTripKm);
+                      const dynamicProgressPct = Math.min(Math.round((simulatedKmProgress / totalTripKm) * 100), 100);
+                      
+                      const dynamicRemainingDistance = Math.max(totalTripKm - dynamicCoveredKm, 0);
+                      const dynamicRemainingHours = dynamicRemainingDistance / 62; // average speed
+                      const remH = Math.floor(dynamicRemainingHours);
+                      const remM = Math.round((dynamicRemainingHours % 1) * 60);
 
-                          <div>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: '800', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>GPS progress</span>
-                            <div style={{ width: '100%', height: '8px', background: 'var(--border-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ width: `${dynamicProgressPct}%`, height: '100%', background: 'var(--brand)', boxShadow: '0 0 8px var(--brand)', borderRadius: '4px', transition: 'width 0.5s ease-in-out' }} />
+                      // Truck dynamic marker coords along SVG line path
+                      const markerCoords = getTruckPos(simulatedKmProgress);
+
+                      return (
+                        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                          
+                          {/* Driver Profile Header Section */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ position: 'relative' }}>
+                                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: '800', border: '1px solid var(--border-subtle)' }}>
+                                  {activeDriver?.name?.split(' ').map(n=>n[0]).join('') || 'JD'}
+                                </div>
+                                <span style={{ position: 'absolute', bottom: '0', right: '0', width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent-success)', border: '2px solid var(--bg-card)' }} />
+                              </div>
+                              <div>
+                                <h4 style={{ color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'Driver'}</h4>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--accent-success)', fontWeight: '700' }}>Active Duty</span>
+                              </div>
+                            </div>
+                            
+                            <div style={{ position: 'relative' }}>
+                              <Bell size={18} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setActiveTab('notifications')} />
+                              {sqliteBuffer.length > 0 && (
+                                <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent-warning)' }} />
+                              )}
                             </div>
                           </div>
 
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                            {dynamicCoveredKm.toLocaleString()} km covered / {totalTripKm.toLocaleString()} km ({dynamicProgressPct}%) | Next Stop: Vadodara (210 km)
+                          {/* Active trip route description */}
+                          <div>
+                            <span style={{ color: 'var(--accent-warning)', fontSize: '0.95rem', fontWeight: '900', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                              ACTIVE TRIP: <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.origin} ➔ {selectedTrip.destination}</span>
+                            </span>
                           </div>
-                        </div>
+
+                          {/* Glowing Map Card */}
+                          <div style={{ 
+                            background: 'var(--bg-elevated)', 
+                            borderRadius: '18px', 
+                            border: '1.5px solid var(--brand)', 
+                            boxShadow: '0 0 12px var(--brand-glow)',
+                            overflow: 'hidden',
+                            position: 'relative'
+                          }}>
+                            <div style={{ padding: '8px 12px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: '700' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>TRIP ID: {selectedTrip.id}</span>
+                              <span style={{ color: 'var(--accent-warning)' }}>STATUS: {selectedTrip.status === 'InTransit' ? 'IN TRANSIT' : selectedTrip.status.toUpperCase()}</span>
+                            </div>
+
+                            {/* Map Graphics */}
+                            <svg width="100%" height="190" viewBox="0 0 280 190" style={{ background: 'var(--bg-void)', display: 'block' }}>
+                              {/* Grid helper dots */}
+                              <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <circle cx="2" cy="2" r="0.8" fill="var(--border-subtle)" />
+                              </pattern>
+                              <rect width="100%" height="100%" fill="url(#dotGrid)" />
+
+                              {/* Background map boundaries mock */}
+                              <path d="M 230,10 L 260,35 Q 240,90 220,105 L 180,95 Q 160,110 150,135 Z" fill="none" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="3 3" />
+                              <text x="240" y="55" fill="var(--text-muted)" fontSize="9" fontWeight="bold" letterSpacing="1" opacity="0.6">Nepal</text>
+                              <text x="140" y="110" fill="var(--text-muted)" fontSize="18" fontWeight="bold" letterSpacing="3" opacity="0.4">India</text>
+
+                              {/* Glowing Neon Cyan Route Line */}
+                              <path 
+                                d="M 170,30 Q 140,55 120,70 T 105,125 T 100,175" 
+                                fill="none" 
+                                stroke="var(--brand-glow)" 
+                                strokeWidth="7" 
+                                strokeLinecap="round"
+                              />
+                              <path 
+                                d="M 170,30 Q 140,55 120,70 T 105,125 T 100,175" 
+                                fill="none" 
+                                stroke="var(--brand)" 
+                                strokeWidth="3.5" 
+                                strokeLinecap="round"
+                                style={{ filter: 'drop-shadow(0px 0px 5px var(--brand))' }}
+                              />
+
+                              {/* Waypoint markers */}
+                              <circle cx="170" cy="30" r="4.5" fill="#f59e0b" stroke="var(--bg-void)" strokeWidth="1.5" />
+                              <text x="180" y="34" fill="var(--text-primary)" fontSize="9.5" fontWeight="bold">{selectedTrip.origin || 'Origin'}</text>
+
+                              <circle cx="120" cy="70" r="3.5" fill="var(--text-muted)" />
+                              <text x="80" y="74" fill="var(--text-muted)" fontSize="8" fontWeight="600">Transit 1</text>
+
+                              <circle cx="105" cy="125" r="3.5" fill="var(--text-muted)" />
+                              <text x="50" y="129" fill="var(--text-muted)" fontSize="8" fontWeight="600">Transit 2</text>
+
+                              <circle cx="100" cy="175" r="4.5" fill="#10b981" stroke="var(--bg-void)" strokeWidth="1.5" />
+                              <text x="54" y="179" fill="var(--text-primary)" fontSize="9.5" fontWeight="bold">{selectedTrip.destination || 'Destination'}</text>
+
+                              {/* Moving truck icon indicator */}
+                              {selectedTrip.status === 'InTransit' && (
+                                <g transform={`translate(${markerCoords.x - 10}, ${markerCoords.y - 10})`} style={{ filter: 'drop-shadow(0px 0px 6px #ff9f0a)' }}>
+                                  <circle cx="10" cy="10" r="10" fill="#ff9f0a" />
+                                  {/* Small truck shape inside indicator */}
+                                  <path d="M5 7h7v3.5H5zm7 1.5h3L16 11H12z" fill="#070b14" />
+                                  <circle cx="7" cy="12" r="1" fill="#070b14" />
+                                  <circle cx="12.5" cy="12" r="1" fill="#070b14" />
+                                </g>
+                              )}
+                            </svg>
+
+                            {/* Translucent ETA banner overlay at bottom */}
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', padding: '6px 12px', fontSize: '0.72rem', color: 'var(--text-primary)', fontWeight: '700', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+                              ETA: {isTripDelivered ? 'Arrived at Destination' : `Destination ${selectedTrip.destination} (Remaining: ${remH}h ${remM}m)`}
+                            </div>
+                          </div>
+
+                          {/* GPS Progress Card */}
+                          <div style={{ 
+                            background: 'var(--bg-elevated)', 
+                            borderRadius: '18px', 
+                            border: '1.5px solid var(--brand)', 
+                            boxShadow: '0 0 12px var(--brand-glow)',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: '800' }}>
+                              <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.origin} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '500' }}>({selectedTrip.startDate || 'Started'})</span></span>
+                              <span style={{ color: 'var(--brand)', fontSize: '0.75rem' }}>➔</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.destination} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '500' }}>(DEST)</span></span>
+                            </div>
+
+                            <div>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: '800', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>GPS progress</span>
+                              <div style={{ width: '100%', height: '8px', background: 'var(--border-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ width: `${dynamicProgressPct}%`, height: '100%', background: 'var(--brand)', boxShadow: '0 0 8px var(--brand)', borderRadius: '4px', transition: 'width 0.5s ease-in-out' }} />
+                              </div>
+                            </div>
+
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                              {dynamicCoveredKm.toLocaleString()} km covered / {totalTripKm.toLocaleString()} km ({dynamicProgressPct}%)
+                            </div>
+                          </div>
 
                         {/* ePOD CHECKLIST PANEL */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -2832,7 +2908,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 )}
                                 <div>
                                   <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasSigned ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
-                                    2. Client Signature (Delhi) {hasSigned && '(Completed)'}
+                                    2. Client Signature ({selectedTrip.origin}) {hasSigned && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
@@ -2902,7 +2978,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 )}
                                 <div>
                                   <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasCargoVerified ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
-                                    4. Cargo Verification (MUM) {hasCargoVerified && '(Completed)'}
+                                    4. Cargo Verification ({selectedTrip.destination}) {hasCargoVerified && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
@@ -2954,7 +3030,20 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                       </div>
                     );
-                  })()}
+                  })() : (
+                    <div style={{ padding: '36px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <Truck size={24} />
+                      </div>
+                      <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>No Active Trip Selected</h4>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {activeDriver ? `Driver ${activeDriver.name} currently has no active trip selected.` : 'Please login with a registered driver.'}
+                      </p>
+                      <button onClick={() => setActiveTab('home')} className="btn btn-brand" style={{ marginTop: '8px', fontSize: '0.8rem', padding: '8px 16px' }}>
+                        View Assigned Trips
+                      </button>
+                    </div>
+                  ))}
 
                   {/* TAB 3: NOTIFICATIONS (Telemetry Timelines / sqlite buffers logs) */}
                   {activeTab === 'notifications' && (
@@ -2993,10 +3082,20 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
                         <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--brand)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', fontWeight: 'bold' }}>
-                          {activeDriver?.name?.split(' ').map(n=>n[0]).join('') || 'JD'}
+                          {activeDriver?.name?.split(' ').map(n=>n[0]).join('') || 'D'}
                         </div>
-                        <h4 style={{ color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'John Doe'}</h4>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {activeDriver?.id || 'DRV-01'}</span>
+                        <h4 style={{ color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'Assigned Driver'}</h4>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <span>ID: <strong>{activeDriver?.id || 'N/A'}</strong></span>
+                          <span>•</span>
+                          <span>Phone: <strong>{activeDriver?.phone || 'N/A'}</strong></span>
+                          {(activeDriver?.licenceNo || activeDriver?.licence_no) && (
+                            <>
+                              <span>•</span>
+                              <span>DL: <strong>{activeDriver?.licenceNo || activeDriver?.licence_no}</strong></span>
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       {/* Duty switches inside profiles tab */}
