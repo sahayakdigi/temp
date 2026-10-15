@@ -22,7 +22,9 @@ export const INITIAL_PARTIES = [
   { id: 'PAR-01', name: 'Reliance Retail Ltd', type: 'client', gstin: '27AAACR1234F1ZA', creditLimit: 500000, creditDays: 30, phone: '7799654708' },
   { id: 'PAR-02', name: 'TATA Motors Logistics', type: 'client', gstin: '27AAACT5678G1ZB', creditLimit: 800000, creditDays: 45, phone: '9876543210' },
   { id: 'PAR-03', name: 'Hindustan Unilever', type: 'client', gstin: '07AAACH9012H1ZC', creditLimit: 400000, creditDays: 30, phone: '9812345678' },
-  { id: 'PAR-04', name: 'Sharma Electronics (Consignee)', type: 'consignee', gstin: '07BBBSE3456F1ZA', address: 'Lajpat Nagar, Delhi', phone: '9988776655' }
+  { id: 'PAR-04', name: 'Sharma Electronics (Consignee)', type: 'consignee', gstin: '07BBBSE3456F1ZA', address: 'Lajpat Nagar, Delhi', phone: '9988776655' },
+  { id: 'BRK-01', name: 'National Booking Agency', type: 'broker', phone: '9810012345', pan: 'AAABN1234K', gstin: '27AAABN1234K1Z5', commissionRate: 5.0, brokerType: 'Booking Agent', tdsSection: '194C (2%)', tdsRate: 2.0, address: 'Transport Nagar, Delhi' },
+  { id: 'BRK-02', name: 'Mumbai Local Broker', type: 'broker', phone: '9820054321', pan: 'AABBM5678L', gstin: '27AABBM5678L1Z8', commissionRate: 5.0, brokerType: 'Commission Agent', parentBrokerId: 'BRK-01', subSplitPct: 30.0, tdsSection: '194C (2%)', tdsRate: 2.0, address: 'Vashi APMC Market, Navi Mumbai' }
 ];
 
 export const INITIAL_VEHICLE_OWNERS = [

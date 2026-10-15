@@ -136,15 +136,13 @@ export default function LoginPage({ onLogin }) {
   ];
 
   return (
-    <div style={{
+    <div className="login-container" style={{
       minHeight: '100vh',
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
       background: 'var(--bg-void)',
     }}>
 
       {/* ── LEFT PANEL — Branding ── */}
-      <div style={{
+      <div className="login-panel-left" style={{
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -200,7 +198,7 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           {/* Feature Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="login-features-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {features.map((f, i) => (
               <div key={i} style={{
                 padding: '16px',
@@ -221,7 +219,7 @@ export default function LoginPage({ onLogin }) {
       </div>
 
       {/* ── RIGHT PANEL — Login Form ── */}
-      <div style={{
+      <div className="login-panel-right" style={{
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',

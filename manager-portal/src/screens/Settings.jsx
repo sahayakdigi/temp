@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Sliders, Bell, Cpu, Save, Lock, CheckCircle, AlertTriangle, Monitor, Globe, MessageSquare, Building, Upload } from 'lucide-react';
+import { User, Shield, Sliders, Bell, Cpu, Save, Lock, CheckCircle, AlertTriangle, Monitor, Globe, MessageSquare, Building, Upload, Sun, Moon } from 'lucide-react';
 import { api } from '../services/api';
 import { auth } from '../firebase';
 import { updateEmail, updatePassword } from 'firebase/auth';
 
 const ACCENTS = [
-  { id: 'saffron', label: 'Saffron Orange (Default)', color: 'hsl(35, 95%, 55%)', deep: 'hsl(28, 92%, 48%)', light: 'hsl(40, 95%, 62%)', glow: 'hsla(35, 95%, 55%, 0.1)' },
-  { id: 'emerald', label: 'Emerald Green', color: 'hsl(152, 72%, 48%)', deep: 'hsl(152, 80%, 40%)', light: 'hsl(152, 65%, 58%)', glow: 'hsla(152, 72%, 48%, 0.1)' },
-  { id: 'cobalt', label: 'Cobalt Blue', color: 'hsl(220, 95%, 60%)', deep: 'hsl(220, 90%, 50%)', light: 'hsl(220, 85%, 68%)', glow: 'hsla(220, 95%, 60%, 0.1)' }
+  { id: 'sky-blue', label: 'Light Sky Blue (Default)', color: 'hsl(200, 95%, 55%)', deep: 'hsl(210, 90%, 46%)', light: 'hsl(195, 95%, 68%)', glow: 'hsla(200, 95%, 55%, 0.14)' },
+  { id: 'ocean-cobalt', label: 'Ocean Cobalt', color: 'hsl(218, 92%, 58%)', deep: 'hsl(220, 90%, 48%)', light: 'hsl(215, 90%, 68%)', glow: 'hsla(218, 92%, 58%, 0.14)' },
+  { id: 'cyan-teal', label: 'Electric Cyan', color: 'hsl(185, 90%, 50%)', deep: 'hsl(188, 85%, 40%)', light: 'hsl(180, 90%, 65%)', glow: 'hsla(185, 90%, 50%, 0.14)' },
+  { id: 'emerald', label: 'Emerald Mint', color: 'hsl(152, 72%, 48%)', deep: 'hsl(152, 80%, 40%)', light: 'hsl(152, 65%, 58%)', glow: 'hsla(152, 72%, 48%, 0.14)' }
 ];
 
 export default function Settings({ currentUser, onUserUpdate }) {
@@ -83,6 +84,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Preference states (stored in LocalStorage)
+  const [theme, setTheme] = useState(localStorage.getItem('temp-theme') || 'dark');
   const [accent, setAccent] = useState(localStorage.getItem('temp-accent') || 'saffron');
   const [units, setUnits] = useState(localStorage.getItem('temp-units') || 'metric');
   const [timezone, setTimezone] = useState(localStorage.getItem('temp-timezone') || 'IST');
@@ -125,7 +127,11 @@ export default function Settings({ currentUser, onUserUpdate }) {
   const loadFeedback = async () => {
     setLoadingFeedback(true);
     try {
-      const data = await api.getFeedback(currentUser.id);
+      const data = await api.getFeedback(
+        currentUser.role === 'Owner / Admin' || currentUser.role === 'Admin'
+          ? 'admin'
+          : currentUser.id
+      );
       setFeedbackList(data || []);
     } catch (err) {
       console.error('Failed to load feedback:', err);
@@ -168,6 +174,18 @@ export default function Settings({ currentUser, onUserUpdate }) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}m ${secs}s`;
+  };
+
+  // Set Theme Mode (Dark vs Light)
+  const applyTheme = (themeMode) => {
+    setTheme(themeMode);
+    localStorage.setItem('temp-theme', themeMode);
+    document.documentElement.setAttribute('data-theme', themeMode);
+    if (themeMode === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
   };
 
   // Set Theme Accents dynamically in browser
@@ -280,7 +298,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
   };
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="responsive-page-pad" style={{ maxWidth: '1000px', margin: '0 auto' }}>
       
       {/* Page Title */}
       <div style={{ marginBottom: '28px' }}>
@@ -306,7 +324,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '32px', alignItems: 'flex-start' }}>
+      <div className="settings-layout-grid" style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '32px', alignItems: 'flex-start' }}>
         
         {/* Navigation Tabs (Vertical Sidebar) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -370,20 +388,22 @@ export default function Settings({ currentUser, onUserUpdate }) {
             <Sliders size={16} /> System Preferences
           </button>
 
-          <button 
-            onClick={() => { setActiveTab('feedback'); setErrorMsg(''); setSuccessMsg(''); }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '12px 16px', borderRadius: 'var(--radius-md)',
-              background: activeTab === 'feedback' ? 'var(--brand-glow)' : 'transparent',
-              border: '1px solid ' + (activeTab === 'feedback' ? 'var(--brand)' : 'transparent'),
-              color: activeTab === 'feedback' ? 'var(--brand-light)' : 'var(--text-secondary)',
-              cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'feedback' ? '600' : '500',
-              fontSize: '0.875rem', transition: 'var(--t-fast)'
-            }}
-          >
-            <MessageSquare size={16} /> Feedback & Support
-          </button>
+          {currentUser.role !== 'Owner / Admin' && currentUser.role !== 'Admin' && (
+            <button 
+              onClick={() => { setActiveTab('feedback'); setErrorMsg(''); setSuccessMsg(''); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '12px 16px', borderRadius: 'var(--radius-md)',
+                background: activeTab === 'feedback' ? 'var(--brand-glow)' : 'transparent',
+                border: '1px solid ' + (activeTab === 'feedback' ? 'var(--brand)' : 'transparent'),
+                color: activeTab === 'feedback' ? 'var(--brand-light)' : 'var(--text-secondary)',
+                cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'feedback' ? '600' : '500',
+                fontSize: '0.875rem', transition: 'var(--t-fast)'
+              }}
+            >
+              <MessageSquare size={16} /> Feedback & Support
+            </button>
+          )}
         </div>
 
         {/* Tab Contents */}
@@ -667,13 +687,85 @@ export default function Settings({ currentUser, onUserUpdate }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px' }}>System Preferences</h3>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Customize theme palettes, units, and system notifications.</p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Customize theme palettes, light/dark mode, units, and system notifications.</p>
+              </div>
+
+              {/* Theme Mode Selection (Dark Mode vs Light/White Mode) */}
+              <div>
+                <label className="label-premium">Interface Color Theme</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => applyTheme('dark')}
+                    style={{
+                      padding: '16px',
+                      background: 'var(--bg-primary)',
+                      border: `1.5px solid ${theme === 'dark' ? 'var(--brand)' : 'var(--border-subtle)'}`,
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      transition: 'var(--t-fast)',
+                      boxShadow: theme === 'dark' ? 'var(--shadow-brand)' : 'none',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #0b0f19, #1e293b)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'var(--brand-light)', border: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                      <Moon size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: '700', color: theme === 'dark' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                        Deep Oceanic Slate
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Dark void · Electric light blue glows
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyTheme('light')}
+                    style={{
+                      padding: '16px',
+                      background: 'var(--bg-primary)',
+                      border: `1.5px solid ${theme === 'light' ? 'var(--brand)' : 'var(--border-subtle)'}`,
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      transition: 'var(--t-fast)',
+                      boxShadow: theme === 'light' ? 'var(--shadow-brand)' : 'none',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #ffffff, #edf2f7)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'var(--brand)', border: '1px solid #cbd5e1'
+                    }}>
+                      <Sun size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: '700', color: theme === 'light' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                        Dull White & Light Blue
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Soft glare-free white · Ice blue accents
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* Accent Color Customization */}
               <div>
                 <label className="label-premium">Theme Accent Color</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '8px' }}>
                   {ACCENTS.map((item) => (
                     <button
                       key={item.id}
@@ -691,7 +783,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
                     >
                       <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: item.color, border: '2px solid rgba(255,255,255,0.1)' }} />
                       <span style={{ fontSize: '0.78rem', fontWeight: accent === item.id ? '600' : '500', color: accent === item.id ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {item.label.split(' ')[0]}
+                        {item.label.split(' (')[0]}
                       </span>
                     </button>
                   ))}
@@ -744,7 +836,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
           )}
 
           {/* 4. FEEDBACK & SUPPORT */}
-          {activeTab === 'feedback' && (
+          {activeTab === 'feedback' && currentUser.role !== 'Owner / Admin' && currentUser.role !== 'Admin' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '4px' }}>Feedback & Support</h3>
@@ -840,6 +932,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
                           'Feature Request': 'badge-brand',
                           'Bug Report': 'badge-danger',
                           'General Support': 'badge-blue',
+                          'Rate Enquiry': 'badge-warning',
                           'Other': 'badge-muted'
                         };
                         const priorityBadges = {
@@ -886,6 +979,12 @@ export default function Settings({ currentUser, onUserUpdate }) {
                               </span>
                             </div>
 
+                            {(currentUser.role === 'Owner / Admin' || currentUser.role === 'Admin') && fb.userName && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                Client: <strong style={{ color: 'var(--brand-light)' }}>{fb.userName}</strong>
+                              </div>
+                            )}
+
                             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
                               {fb.message}
                             </p>
@@ -915,7 +1014,7 @@ export default function Settings({ currentUser, onUserUpdate }) {
       </div>
 
       {/* Dynamic Telemetry Info Box */}
-      <div className="glass-panel" style={{ marginTop: '32px', padding: '20px 24px', borderRadius: 'var(--radius-lg)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
+      <div className="glass-panel dashboard-kpi-grid" style={{ marginTop: '32px', padding: '20px 24px', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Cpu size={20} style={{ color: 'var(--brand-light)' }} />
           <div>

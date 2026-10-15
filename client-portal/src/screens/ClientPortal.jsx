@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileText, Search, Download, ShieldCheck, Eye, MapPin,
   Package, ArrowRight, ChevronDown, ChevronUp, CheckCircle,
   Clock, Truck, Layers, CreditCard, TrendingUp, AlertTriangle,
-  BarChart3, Navigation, Calendar, Hash, Weight, Zap, X
+  BarChart3, Navigation, Calendar, Hash, Weight, Zap, X,
+  Sun, Moon
 } from 'lucide-react';
 import GlossaryTooltip from '../components/GlossaryTooltip';
 import { GLOSSARY } from '../components/glossaryData';
@@ -62,6 +63,32 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
   const [oldPassword, setOldPassword]   = useState('');
   const [newPassword, setNewPassword]   = useState('');
   const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  // ── Theme state & sync ──
+  const [theme, setTheme] = useState(localStorage.getItem('temp-theme') || 'dark');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('temp-theme') || 'dark';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (savedTheme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('temp-theme', nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    if (nextTheme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  };
 
   // ── Tab & search state ────────────────────────────────────────────────────
   const [activeTab, setActiveTab]       = useState('all');
@@ -183,7 +210,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="animate-fade-in responsive-page-pad" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* ── Toast ─────────────────────────────────────────────────────────── */}
       {toast && (
@@ -200,7 +227,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
       )}
 
       {/* ── Page Header ────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <div>
           <h2 className="page-title">Client Portal & Order Desk</h2>
           <p className="page-subtitle">Enterprise track & trace · Live ETAs · Legal document download · Instant rate quotes</p>
@@ -209,6 +236,24 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
           <span className="badge badge-brand" style={{ fontSize: '0.8rem', padding: '6px 14px' }}>
             {visibleLrs.length} Consignments
           </span>
+          <button
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to Light (White) Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle Color Theme"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun size={14} style={{ color: 'var(--brand-light)' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Light</span>
+              </>
+            ) : (
+              <>
+                <Moon size={14} style={{ color: 'var(--accent-info)' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Dark</span>
+              </>
+            )}
+          </button>
           <button 
             onClick={() => setCurrentView(currentView === 'dashboard' ? 'settings' : 'dashboard')}
             className="btn btn-outline"
@@ -231,13 +276,10 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
       {currentView === 'dashboard' ? (
         <>
           {/* ══ SECTION 1: Client Account Header ══════════════════════════════════ */}
-      <div className="glass-panel" style={{
+      <div className="glass-panel client-kpi-grid" style={{
         padding: '20px 24px',
-        background: 'linear-gradient(135deg, hsla(35,95%,55%,0.06) 0%, hsla(222,22%,14%,0.9) 100%)',
-        borderColor: 'hsla(35,95%,55%,0.15)',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr 1.5fr',
-        gap: '24px',
+        background: 'linear-gradient(135deg, hsla(205, 90%, 55%,0.06) 0%, hsla(222,22%,14%,0.9) 100%)',
+        borderColor: 'hsla(205, 90%, 55%,0.15)',
         alignItems: 'center'
       }}>
         {/* Client Identity */}
@@ -297,7 +339,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
       {/* ══ SECTION 2: Live Shipment Dashboard ════════════════════════════════ */}
       <div className="glass-panel" style={{ padding: '22px' }}>
         {/* Tab Bar + Search */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', gap: '16px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '0', background: 'var(--bg-void)', borderRadius: 'var(--radius-sm)', padding: '3px', border: '1px solid var(--border-subtle)' }}>
             {[
               { key: 'all', label: 'All' },
@@ -356,8 +398,8 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
 
             return (
               <div key={lr.lrNo} style={{
-                background: isExpanded ? 'hsla(35,95%,55%,0.04)' : 'hsla(222,22%,12%,0.55)',
-                border: `1px solid ${isExpanded ? 'hsla(35,95%,55%,0.2)' : 'var(--border-subtle)'}`,
+                background: isExpanded ? 'hsla(205, 90%, 55%,0.04)' : 'var(--bg-elevated)',
+                border: `1px solid ${isExpanded ? 'hsla(205, 90%, 55%,0.2)' : 'var(--border-subtle)'}`,
                 borderRadius: 'var(--radius-md)',
                 overflow: 'hidden',
                 transition: 'border-color 0.2s ease'
@@ -442,7 +484,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
                       <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '12px' }}>Shipment Journey</p>
                       <div style={{ position: 'relative', padding: '6px 0 28px' }}>
                         <div style={{ position: 'absolute', top: '11px', left: '4px', right: '4px', height: '3px', background: 'var(--border-subtle)', borderRadius: '2px' }} />
-                        <div style={{ position: 'absolute', top: '11px', left: '4px', width: `calc(${progressPct}% - 8px)`, height: '3px', background: 'linear-gradient(90deg, var(--brand-deep), var(--brand-light))', borderRadius: '2px', boxShadow: '0 0 8px hsla(35,95%,55%,0.45)', transition: 'width 0.6s ease' }} />
+                        <div style={{ position: 'absolute', top: '11px', left: '4px', width: `calc(${progressPct}% - 8px)`, height: '3px', background: 'linear-gradient(90deg, var(--brand-deep), var(--brand-light))', borderRadius: '2px', boxShadow: '0 0 8px hsla(205, 90%, 55%,0.45)', transition: 'width 0.6s ease' }} />
                         <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
                           {STEPS.map((step, idx) => {
                             const done = idx <= stepIdx;
@@ -453,7 +495,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
                                   width: '14px', height: '14px', borderRadius: '50%',
                                   background: done ? (current ? 'var(--brand)' : 'var(--brand-deep)') : 'var(--bg-secondary)',
                                   border: `2px solid ${done ? 'var(--brand)' : 'var(--border-default)'}`,
-                                  boxShadow: current ? '0 0 12px hsla(35,95%,55%,0.7)' : 'none',
+                                  boxShadow: current ? '0 0 12px hsla(205, 90%, 55%,0.7)' : 'none',
                                   transition: 'all 0.3s ease'
                                 }} />
                                 <span style={{ fontSize: '0.65rem', color: done ? 'var(--brand-light)' : 'var(--text-muted)', fontWeight: done ? '600' : '400', whiteSpace: 'nowrap' }}>
@@ -469,7 +511,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
                     {/* GPS + ETA + Details grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                       {/* GPS */}
-                      <div style={{ padding: '12px 14px', background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
                           <Navigation size={13} style={{ color: 'var(--brand)' }} />
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>GPS Location</span>
@@ -478,7 +520,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
                       </div>
 
                       {/* ETA */}
-                      <div style={{ padding: '12px 14px', background: 'hsla(35,95%,55%,0.06)', border: '1px solid hsla(35,95%,55%,0.15)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ padding: '12px 14px', background: 'hsla(205, 90%, 55%,0.06)', border: '1px solid hsla(205, 90%, 55%,0.15)', borderRadius: 'var(--radius-sm)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
                           <Clock size={13} style={{ color: 'var(--brand)' }} />
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Live ETA</span>
@@ -489,7 +531,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
                       </div>
 
                       {/* Shipment details */}
-                      <div style={{ padding: '12px 14px', background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
                           <Package size={13} style={{ color: 'var(--accent-info)' }} />
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Consignment</span>
@@ -513,7 +555,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
                           <div key={doc.label} style={{
                             display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '9px 14px', flex: '1', minWidth: '180px',
-                            background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)',
+                            background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
                             borderRadius: 'var(--radius-sm)', justifyContent: 'space-between'
                           }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -560,7 +602,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
       </div>
 
       {/* ══ SECTION 3 + 4: Rate Calculator & Billing Summary (side-by-side) ═══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '24px', alignItems: 'start' }}>
+      <div className="responsive-grid-split">
 
         {/* ── Section 3: Instant Rate Calculator ─────────────────────────────── */}
         <div className="glass-panel" style={{ padding: '22px' }}>
@@ -625,7 +667,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
             {/* Live Rate Preview */}
             {chargeWt > 0 && (
               <div style={{
-                background: 'hsla(35,95%,55%,0.07)', border: '1px solid hsla(35,95%,55%,0.2)',
+                background: 'hsla(205, 90%, 55%,0.07)', border: '1px solid hsla(205, 90%, 55%,0.2)',
                 borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -709,7 +751,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
               ].map(kpi => (
                 <div key={kpi.label} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '12px 14px', background: 'hsla(222,22%,12%,0.55)',
+                  padding: '12px 14px', background: 'var(--bg-elevated)',
                   border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)'
                 }}>
                   <div>
@@ -786,7 +828,7 @@ export default function ClientPortal({ lrs = [], currentUser = {}, parties = [],
               </div>
             </div>
 
-            <div style={{ padding: '16px', background: 'hsla(35,95%,55%,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+            <div style={{ padding: '16px', background: 'hsla(205, 90%, 55%,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
               <p style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--brand-light)' }}>Change Password (Optional)</p>
               <div>
                 <label className="label-premium">Current Password</label>

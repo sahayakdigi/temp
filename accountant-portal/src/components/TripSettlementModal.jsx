@@ -8,10 +8,12 @@ import {
 export default function TripSettlementModal({ trip, onClose, onConfirmSettlement }) {
   if (!trip) return null;
 
+  // Mock initial trip advances & expenses if not explicitly set
   const initialAdvance = trip.advanceAmt || 20000;
   const initialFuelCard = trip.fuelCardAmt || 5000;
   const totalAdvanceGiven = initialAdvance + initialFuelCard;
 
+  // OCR Claim Line items with AI analysis
   const [expenseClaims, setExpenseClaims] = useState(trip.expenses || [
     {
       id: 'EXP-101',
@@ -63,18 +65,24 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
     }
   ]);
 
+  // Shortage, Damage & Late Deductions
   const [shortageDeduction, setShortageDeduction] = useState(0);
   const [lateDeduction, setLateDeduction] = useState(0);
   const [otherPenalty, setOtherPenalty] = useState(0);
   const [deductionNotes, setDeductionNotes] = useState('');
 
+  // Statutory TDS Sec 194C
   const [applyTds, setApplyTds] = useState(trip.vehicleType === 'Market' || trip.vehicleType === 'Hired');
-  const [tdsRate, setTdsRate] = useState(1);
+  const [tdsRate, setTdsRate] = useState(1); // 1% Individual / 2% Company
 
+  // Receipt Preview Lightbox
   const [previewImage, setPreviewImage] = useState(null);
-  const [activeStep, setActiveStep] = useState(1);
+
+  // Settlement Mode / Tab
+  const [activeStep, setActiveStep] = useState(1); // 1: Audit Expenses, 2: Deductions & TDS, 3: Final Voucher & Post
   const [settledSuccess, setSettledSuccess] = useState(false);
 
+  // Toggle claim approval
   const toggleApproval = (id) => {
     setExpenseClaims(prev => prev.map(c => {
       if (c.id === id) {
@@ -90,11 +98,17 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
     setExpenseClaims(prev => prev.map(c => c.id === id ? { ...c, approvedAmount: num } : c));
   };
 
+  // Calculations
   const totalApprovedExpenses = expenseClaims.reduce((sum, c) => sum + (c.approved ? c.approvedAmount : 0), 0);
   const totalDeductions = (parseFloat(shortageDeduction) || 0) + (parseFloat(lateDeduction) || 0) + (parseFloat(otherPenalty) || 0);
   
   const tripFreight = trip.totalFreight || 65000;
   const tdsAmount = applyTds ? Math.round((tripFreight * tdsRate) / 100) : 0;
+
+  // Final Net Calculation:
+  // For Driver: Advance Given - Approved Expenses - Deductions
+  // If positive -> Driver must return money to company
+  // If negative -> Company must pay reimbursement to driver
   const netBalance = totalAdvanceGiven - totalApprovedExpenses - totalDeductions;
 
   const handleConfirm = () => {
@@ -177,8 +191,10 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
 
         {/* Modal Body */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+          {/* STEP 1: OCR Expense Audit */}
           {activeStep === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Advance Summary Banner */}
               <div style={{
                 background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1))',
                 borderRadius: '12px',
@@ -202,6 +218,7 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
                 </div>
               </div>
 
+              {/* Expense Claim Table */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Driver Expense Claims & OCR Bills</h4>
@@ -267,6 +284,7 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
                 </div>
               </div>
 
+              {/* Total Approved Banner */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Approved OCR Expenses:</span>
                 <span style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-success)' }}>₹{totalApprovedExpenses.toLocaleString('en-IN')}</span>
@@ -274,6 +292,7 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
             </div>
           )}
 
+          {/* STEP 2: Deductions & TDS */}
           {activeStep === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div className="card" style={{ padding: '1.25rem', background: 'var(--bg-surface, rgba(255,255,255,0.02))' }}>
@@ -326,6 +345,7 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
                 </div>
               </div>
 
+              {/* Statutory TDS Section */}
               <div className="card" style={{ padding: '1.25rem', background: 'var(--bg-surface, rgba(255,255,255,0.02))' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -369,8 +389,10 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
             </div>
           )}
 
+          {/* STEP 3: Final Statement & Posting */}
           {activeStep === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Settlement Summary Slip */}
               <div style={{
                 background: 'var(--bg-surface, #0f172a)',
                 border: '1.5px dashed var(--border-color)',
@@ -399,6 +421,7 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
                   </div>
                 </div>
 
+                {/* Final Net Outcome Banner */}
                 <div style={{
                   padding: '1rem 1.25rem',
                   borderRadius: '10px',
@@ -443,6 +466,7 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
           )}
         </div>
 
+        {/* Receipt Image Preview Modal */}
         {previewImage && (
           <div style={{
             position: 'fixed',
@@ -454,19 +478,20 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
             justifyContent: 'center',
             padding: '2rem'
           }}>
-            <div style={{ position: 'relative', maxWidth: '500px', width: '100%', background: '#1e293b', padding: '1rem', borderRadius: '12px' }}>
+            <div style={{ position: 'relative', maxWidth: '500px', width: '100%', background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
               <button
                 onClick={() => setPreviewImage(null)}
-                style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
               >
                 <X size={24} />
               </button>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>Scanned Bill Preview</h4>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: 'var(--text-primary)' }}>Scanned Bill Preview</h4>
               <img src={previewImage} alt="Receipt" style={{ width: '100%', borderRadius: '8px', maxHeight: '60vh', objectFit: 'contain' }} />
             </div>
           </div>
         )}
 
+        {/* Modal Footer Controls */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
           <div>
             {activeStep > 1 && (

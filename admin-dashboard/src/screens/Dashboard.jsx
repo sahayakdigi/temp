@@ -506,7 +506,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
 
   return (
     <>
-      <div className="animate-fade-in" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <div className="animate-fade-in dashboard-container">
       
       {/* COCKPIT HEADER WITH FILTERS */}
       <div className="page-header" style={{ marginBottom: '0' }}>
@@ -515,7 +515,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
           <p className="page-subtitle">Real-time branch telemetry · Multi-node rollup metrics · Action Center</p>
         </div>
         
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="cockpit-header-controls" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Branch Context Dropdown (FR-12.2) */}
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>Active Node Context:</span>
           <select 
@@ -552,7 +552,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
       )}
 
       {/* KPI TILE METRICS */}
-      <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
+      <div className="stagger-children dashboard-kpi-grid">
         {[
           { label: 'Active Trips (FTL)', value: `${activeFTLCount}`, unit: 'running', icon: <Truck size={22} />, color: 'var(--brand)', bg: 'var(--brand-glow)', accent: 'var(--brand)', tab: 'fleet' },
           { label: 'Open LRs (PTL)', value: `${openLRsCount}`, unit: 'loose cargo', icon: <FileText size={22} />, color: 'var(--accent-info)', bg: 'var(--accent-info-glow)', accent: 'var(--accent-info)', tab: 'manifest' },
@@ -604,7 +604,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
       </div>
 
       {/* MID ROW: INTERACTIVE MAP + ACTION CENTER */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '24px' }}>
+      <div className="dashboard-mid-grid">
         
         {/* Clickable Telemetry Map */}
         <div className="glass-panel" style={{ padding: '22px', position: 'relative' }}>
@@ -644,7 +644,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
               border: '1px solid var(--border-subtle)',
               position: 'relative',
               overflow: 'hidden',
-              background: '#070a0f',
+              background: 'var(--bg-void)',
               zIndex: 1,
               cursor: 'pointer'
             }}
@@ -680,7 +680,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
                 className="glass-panel animate-scale-up" 
                 style={{
                   position: 'absolute', bottom: '15px', left: '15px', right: '15px',
-                  background: 'hsla(222, 25%, 8%, 0.95)', border: '1px solid var(--brand)',
+                  background: 'var(--bg-elevated)', border: '1px solid var(--brand)',
                   borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px',
                   boxShadow: 'var(--shadow-lg)', zIndex: 1000
                 }}
@@ -692,15 +692,15 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
                   <button onClick={() => setClickedMapNode(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={15} /></button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', fontSize: '0.82rem' }}>
-                  <div style={{ background: 'hsla(222, 22%, 12%, 0.5)', padding: '8px 12px', borderRadius: '6px' }}>
+                  <div style={{ background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: '6px' }}>
                     <p style={{ color: 'var(--text-muted)' }}>Loose Stock</p>
                     <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{clickedMapNode.stockCount} LRs</p>
                   </div>
-                  <div style={{ background: 'hsla(222, 22%, 12%, 0.5)', padding: '8px 12px', borderRadius: '6px' }}>
+                  <div style={{ background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: '6px' }}>
                     <p style={{ color: 'var(--text-muted)' }}>Pending Weight</p>
                     <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{clickedMapNode.stockWeight?.toLocaleString()} kg</p>
                   </div>
-                  <div style={{ background: 'hsla(222, 22%, 12%, 0.5)', padding: '8px 12px', borderRadius: '6px' }}>
+                  <div style={{ background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: '6px' }}>
                     <p style={{ color: 'var(--text-muted)' }}>Outbound Active</p>
                     <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--brand)', marginTop: '2px' }}>{clickedMapNode.outboundCount} manifests</p>
                   </div>
@@ -899,7 +899,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
                 )}
 
                 {/* Legend ledger cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginTop: '4px' }}>
+                <div className="dashboard-ledger-grid">
                   {[
                     { label: 'Revenue (Invoiced)', val: totalRev, color: 'var(--text-primary)' },
                     { label: 'Fuel Expenses', val: fuelExp, color: 'var(--brand)' },
@@ -907,7 +907,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
                     { label: 'Driver Batta/Cash', val: driverExp, color: 'var(--accent-info)' },
                     { label: 'Net Profit Margin', val: mtdNetProfit, color: 'var(--accent-success)' }
                   ].map((item, idx) => (
-                    <div key={idx} style={{ padding: '10px 14px', background: 'hsla(222, 22%, 12%, 0.5)', borderRadius: '6px', borderLeft: `3px solid ${item.color}` }}>
+                    <div key={idx} style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: '6px', borderLeft: `3px solid ${item.color}` }}>
                       <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{item.label}</p>
                       <p style={{ fontSize: '0.98rem', fontWeight: '800', marginTop: '2px', fontFamily: 'var(--font-display)' }}>₹{item.val?.toLocaleString('en-IN')}</p>
                     </div>
@@ -922,7 +922,7 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
       </div>
 
       {/* DETAILED FTL VS PTL STATISTICS (User Comment: "tell everything about both FTL and PTL") */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="dashboard-split-grid">
         
         {/* FTL Performance Cockpit */}
         <div className="glass-panel" style={{ padding: '22px' }}>
@@ -931,14 +931,14 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
             <h3 style={{ fontSize: '0.95rem', fontWeight: '800' }}>Full Truck Load (FTL) Operations</h3>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
-            <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+          <div className="dashboard-mini-grid">
+            <div style={{ background: 'var(--bg-elevated)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>FTL Dispatches</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--brand-light)', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
                 {ftlTrips.length} <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: '400' }}>trips</span>
               </p>
             </div>
-            <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ background: 'var(--bg-elevated)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Active In-Transit</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--brand-light)', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
                 {ftlActive} <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: '400' }}>running</span>
@@ -971,13 +971,13 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
-            <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ background: 'var(--bg-elevated)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>PTL Lorry Receipts (LRs)</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--accent-cyan)', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
                 {ptlLrs.length} <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: '400' }}>items</span>
               </p>
             </div>
-            <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ background: 'var(--bg-elevated)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tonnage & Article Count</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--accent-cyan)', fontFamily: 'var(--font-display)', marginTop: '2px' }}>
                 {ptlPackages} <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: '400' }}>bxs ({ptlWeight?.toLocaleString()} kg)</span>
@@ -1031,51 +1031,53 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
           </div>
         </div>
 
-        <table className="table-premium">
-          <thead>
-            <tr>
-              {['LR / Trip Ref', 'Client / Party', 'Route Lane', 'Category', 'Hauled Qty / Weight', 'Total Value (₹)', 'Status', 'Date'].map(col => (
-                <th key={col}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {finalRecentTransactions.length === 0 ? (
+        <div className="table-responsive">
+          <table className="table-premium">
+            <thead>
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', padding: '20px' }}>
-                  No recent transaction entries found for this branch context.
-                </td>
+                {['LR / Trip Ref', 'Client / Party', 'Route Lane', 'Category', 'Hauled Qty / Weight', 'Total Value (₹)', 'Status', 'Date'].map(col => (
+                  <th key={col}>{col}</th>
+                ))}
               </tr>
-            ) : finalRecentTransactions.map((item, idx) => (
-              <tr key={idx}>
-                <td style={{ fontWeight: '700', color: 'var(--brand-light)', fontFamily: 'var(--font-display)' }}>
-                  {item.lrNo || item.id}
-                </td>
-                <td>{item.consignor || item.client}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>
-                  {item.route}
-                </td>
-                <td>
-                  <span className={`badge ${item.type === 'FTL' ? 'badge-brand' : 'badge-cyan'}`}>
-                    {item.type}
-                  </span>
-                </td>
-                <td style={{ fontFamily: 'var(--font-display)' }}>{item.qty}</td>
-                <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>₹{item.freight?.toLocaleString('en-IN')}</td>
-                <td>
-                          <span className={`badge ${
-                    item.status === 'Delivered' || item.status === 'Closed' ? 'badge-success' :
-                    item.status === 'Booked' || item.status === 'Started' ? 'badge-cyan' :
-                    item.status === 'AtHub' || item.status === 'InTransit' ? 'badge-brand' : 'badge-warning'
-                  }`}>
-                    {item.status}
-                  </span>
-                </td>
-                <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{item.date}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {finalRecentTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', padding: '20px' }}>
+                    No recent transaction entries found for this branch context.
+                  </td>
+                </tr>
+              ) : finalRecentTransactions.map((item, idx) => (
+                <tr key={idx}>
+                  <td style={{ fontWeight: '700', color: 'var(--brand-light)', fontFamily: 'var(--font-display)' }}>
+                    {item.lrNo || item.id}
+                  </td>
+                  <td>{item.consignor || item.client}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>
+                    {item.route}
+                  </td>
+                  <td>
+                    <span className={`badge ${item.type === 'FTL' ? 'badge-brand' : 'badge-cyan'}`}>
+                      {item.type}
+                    </span>
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-display)' }}>{item.qty}</td>
+                  <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>₹{item.freight?.toLocaleString('en-IN')}</td>
+                  <td>
+                            <span className={`badge ${
+                      item.status === 'Delivered' || item.status === 'Closed' ? 'badge-success' :
+                      item.status === 'Booked' || item.status === 'Started' ? 'badge-cyan' :
+                      item.status === 'AtHub' || item.status === 'InTransit' ? 'badge-brand' : 'badge-warning'
+                    }`}>
+                      {item.status}
+                    </span>
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{item.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

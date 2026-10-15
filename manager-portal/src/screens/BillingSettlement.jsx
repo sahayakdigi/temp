@@ -16,12 +16,15 @@ import {
   Activity,
   CreditCard,
   X,
-  History
+  History,
+  Receipt,
+  Sparkles
 } from 'lucide-react';
 import GlossaryTooltip from '../components/GlossaryTooltip';
 import { GLOSSARY } from '../components/glossaryData';
+import TripSettlementModal from '../components/TripSettlementModal';
 
-export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTrips, vehicleOwners = [], trucks = [] }) {
+export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTrips, vehicleOwners = [], trucks = [], parties = [] }) {
   // --- Active Tab Filters ---
   const [selectedLrNos, setSelectedLrNos] = useState([]);
   const [successMsg, setSuccessMsg] = useState('');
@@ -45,6 +48,27 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
   const [lateDeductions, setLateDeductions] = useState({});
   const [miscDeductions, setMiscDeductions] = useState({});
   const [settledTrips, setSettledTrips] = useState([]);
+
+  // --- Driver Trip Advance Settlement Modal State ---
+  const [settlingTrip, setSettlingTrip] = useState(null);
+
+  const handleConfirmTripSettlement = (settlementData) => {
+    const tripId = settlementData.tripId;
+    setSettledTrips(prev => [...prev, tripId]);
+    if (setTrips) {
+      setTrips(prev => prev.map(t => t.id === tripId ? { ...t, status: 'Settled', settlementData } : t));
+    }
+    const balanceText = settlementData.netBalance >= 0 
+      ? `₹${settlementData.netBalance.toLocaleString('en-IN')} advance returned by driver`
+      : `₹${Math.abs(settlementData.netBalance).toLocaleString('en-IN')} reimbursement approved`;
+
+    setSuccessMsg(`Trip ${tripId} advance & OCR expenses settled! ${balanceText}. Posted to Digital Ledger.`);
+    pushLog('settle', `Trip ${tripId} settled: Approved OCR expenses ₹${settlementData.totalApprovedExpenses.toLocaleString('en-IN')} (${balanceText})`, 'var(--accent-success)');
+    setTimeout(() => {
+      setSettlingTrip(null);
+      setSuccessMsg('');
+    }, 4000);
+  };
 
   // --- GST and Interstate Logic ---
   const isInterState = (origin, destination) => {
@@ -116,10 +140,10 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
       return s + (t.contractRate - t.driverAdvance - shortage - late - misc);
     }, 0);
 
-  // Agent Commissions: Accrued commission (5%) on LRs that aren't settled yet
+  // Agent Commissions: Accrued commission on LRs that aren't settled yet
   const agentCommissions = lrs
-    .filter(l => !settledAgents.includes(l.consignor)) // filter settled shippers
-    .reduce((s, l) => s + (l.freightAmt * 0.05), 0);
+    .filter(l => !settledAgents.includes(l.broker_id || l.broker_name || l.consignor))
+    .reduce((s, l) => s + Number(l.broker_commission ?? l.brokerCommission ?? ((l.freightAmt || l.freight_amt || 0) * 0.05)), 0);
 
   const netReceivable = clientOutstanding - hiredOwnerOutstanding - agentCommissions;
 
@@ -158,8 +182,11 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
     const agent = showAgentSettleModal;
     setSettledAgents([...settledAgents, agentKey]);
     setShowAgentSettleModal(null);
-    setSuccessMsg(`Commissions settled for ${agent?.name}. TDS (2%) deducted under Section 194C.`);
-    pushLog('agent', `Agent commission settled: ${agent?.name} — ₹${Math.round((agent?.amount || 0) * 0.98).toLocaleString('en-IN')} (after TDS)`, 'var(--accent-warning)');
+    const tdsRate = agent?.tdsRate || 2;
+    const tdsAmt = Math.round(((agent?.amount || 0) * tdsRate) / 100);
+    const netPayout = (agent?.amount || 0) - tdsAmt;
+    setSuccessMsg(`Commissions settled for ${agent?.name}. TDS (${tdsRate}%) deducted under Section ${tdsRate === 5 ? '194H' : '194C'}.`);
+    pushLog('agent', `Agent commission settled: ${agent?.name} — ₹${Math.round(netPayout).toLocaleString('en-IN')} (after TDS)`, 'var(--accent-warning)');
     setTimeout(() => setSuccessMsg(''), 5000);
   };
 
@@ -217,7 +244,7 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
   ];
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div className="animate-fade-in responsive-page-pad" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
       {/* Header */}
       <div>
@@ -226,7 +253,7 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+      <div className="dashboard-kpi-grid">
         {summaryCards.map(c => (
           <div key={c.label} className="glass-panel" style={{ padding: '18px 20px' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>{c.label}</p>
@@ -247,7 +274,7 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
       )}
 
       {/* Three Columns Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.15fr 1.25fr', gap: '24px', alignItems: 'start' }}>
+      <div className="billing-three-column-grid">
 
         {/* Column 1: Client Invoicing & To-Pay Collections */}
         <div className="glass-panel" style={{ padding: '22px' }}>
@@ -421,12 +448,12 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
                   <span>₹{Math.round(showAgentSettleModal.amount * 0.3).toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--accent-danger)' }}>
-                  <span>TDS Deduction (2% - 194C):</span>
-                  <span>− ₹{Math.round(showAgentSettleModal.amount * 0.02).toLocaleString()}</span>
+                  <span>TDS Deduction ({showAgentSettleModal.tdsRate || 2}% - {showAgentSettleModal.tdsRate === 5 ? '194H' : '194C'}):</span>
+                  <span>− ₹{Math.round(showAgentSettleModal.amount * ((showAgentSettleModal.tdsRate || 2) / 100)).toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-subtle)', paddingTop: '6px', fontWeight: '700', color: 'var(--text-primary)' }}>
                   <span>Net Paid Payout:</span>
-                  <span>₹{Math.round(showAgentSettleModal.amount * 0.98).toLocaleString()}</span>
+                  <span>₹{Math.round(showAgentSettleModal.amount * (1 - ((showAgentSettleModal.tdsRate || 2) / 100))).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -441,83 +468,114 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {[
-              { name: 'National Booking Agency', shipperKey: 'TATA Motors Logistics', share: 0.7, note: 'Accruing' },
-              { name: 'Mumbai Local Broker', shipperKey: 'Reliance Retail Ltd', share: 0.3, note: 'Settle on POD upload' },
-            ].map(agent => {
-              const isSettled = settledAgents.includes(agent.shipperKey);
-              // Calculate agent commission: 5% of freightAmt of LRs
-              const agentLrFreight = lrs.filter(l => l.consignor === agent.shipperKey).reduce((s, l) => s + l.freightAmt, 0);
-              const rawCommission = agentLrFreight * 0.05;
-              const primarySplit = rawCommission * 0.7;
-              const subSplit = rawCommission * 0.3;
+            {(() => {
+              const brokerParties = parties.filter(p => p.type === 'broker');
+              const agentList = brokerParties.length > 0
+                ? brokerParties.map(bp => {
+                    const subSplit = Number(bp.subSplitPct ?? bp.sub_split_pct ?? 30) / 100;
+                    return {
+                      id: bp.id,
+                      name: bp.name,
+                      brokerType: bp.brokerType || bp.broker_type || 'Commission Agent',
+                      tdsRate: Number(bp.tdsRate ?? bp.tds_rate ?? (bp.tdsSection === '194H' ? 5 : 2)),
+                      subSplit: subSplit,
+                      isSub: Boolean(bp.parentBrokerId || bp.parent_broker_id),
+                      note: bp.parentBrokerId || bp.parent_broker_id ? 'Sub-broker' : 'Primary Broker'
+                    };
+                  })
+                : [
+                    { id: 'BRK-01', name: 'National Booking Agency', brokerType: 'Booking Agent', shipperKey: 'TATA Motors Logistics', tdsRate: 2, subSplit: 0.3, isSub: false, note: 'Accruing' },
+                    { id: 'BRK-02', name: 'Mumbai Local Broker', brokerType: 'Delivery Agent', shipperKey: 'Reliance Retail Ltd', tdsRate: 5, subSplit: 0.3, isSub: true, note: 'Settle on POD upload' },
+                  ];
 
-              return (
-                <div key={agent.name} style={{ 
-                  padding: '14px', 
-                  background: 'hsla(222, 22%, 12%, 0.6)', 
-                  border: `1px solid ${isSettled ? 'var(--accent-success-glow)' : 'var(--border-subtle)'}`, 
-                  borderRadius: 'var(--radius-md)',
-                  opacity: isSettled ? 0.6 : 1
-                }}>
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: '700', marginBottom: '6px' }}>{agent.name}</h4>
-                  
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
-                    <div>
-                      <span>Total Accrued Commission: </span>
-                      <strong style={{ color: 'var(--accent-warning)' }}>
-                        ₹{Math.round(rawCommission).toLocaleString('en-IN')}
-                      </strong>
+              return agentList.map(agent => {
+                const isSettled = settledAgents.includes(agent.id) || settledAgents.includes(agent.name) || (agent.shipperKey && settledAgents.includes(agent.shipperKey));
+                
+                // Calculate agent commission: look up LRs booked with this broker or fallback to consignor match
+                const agentLrs = lrs.filter(l => 
+                  (l.broker_id && l.broker_id === agent.id) ||
+                  (l.broker_name && l.broker_name === agent.name) ||
+                  (!l.broker_id && !l.broker_name && (agent.shipperKey && l.consignor === agent.shipperKey))
+                );
+
+                const rawCommission = agentLrs.length > 0
+                  ? agentLrs.reduce((s, l) => s + Number(l.broker_commission ?? l.brokerCommission ?? ((l.freightAmt || l.freight_amt || 0) * 0.05)), 0)
+                  : (agent.shipperKey ? lrs.filter(l => l.consignor === agent.shipperKey).reduce((s, l) => s + (l.freightAmt * 0.05), 0) : 0);
+
+                const primarySplit = agent.isSub ? rawCommission * (1 - agent.subSplit) : rawCommission * 0.7;
+                const subSplit = agent.isSub ? rawCommission * agent.subSplit : rawCommission * 0.3;
+
+                return (
+                  <div key={agent.id || agent.name} style={{ 
+                    padding: '14px', 
+                    background: 'var(--bg-elevated)', 
+                    border: `1px solid ${isSettled ? 'var(--accent-success-glow)' : 'var(--border-subtle)'}`, 
+                    borderRadius: 'var(--radius-md)',
+                    opacity: isSettled ? 0.6 : 1
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <h4 style={{ fontSize: '0.875rem', fontWeight: '700' }}>{agent.name}</h4>
+                      <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>{agent.brokerType}</span>
                     </div>
-                    <div style={{ paddingLeft: '8px', fontSize: '0.75rem', borderLeft: '2px solid var(--border-subtle)' }}>
-                      <div>Primary Share (70%): ₹{Math.round(primarySplit).toLocaleString('en-IN')}</div>
-                      <div>Sub-broker Split (30%): ₹{Math.round(subSplit).toLocaleString('en-IN')}</div>
+                    
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
+                      <div>
+                        <span>Total Accrued Commission: </span>
+                        <strong style={{ color: 'var(--accent-warning)' }}>
+                          ₹{Math.round(rawCommission).toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div style={{ paddingLeft: '8px', fontSize: '0.75rem', borderLeft: '2px solid var(--border-subtle)' }}>
+                        <div>Primary Share: ₹{Math.round(primarySplit).toLocaleString('en-IN')}</div>
+                        <div>Sub-broker Split ({Math.round(agent.subSplit * 100)}%): ₹{Math.round(subSplit).toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Role: {agent.note} · TDS: {agent.tdsRate}%</div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Status: {agent.note}</div>
+
+                    {isSettled ? (
+                      <span style={{ color: 'var(--accent-success)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+                        <ShieldCheck size={14} /> Settled (TDS filed)
+                      </span>
+                    ) : (
+                      <button 
+                        className="btn-secondary" 
+                        style={{ padding: '6px 12px', fontSize: '0.76rem', width: '100%', justifyContent: 'center' }}
+                        onClick={() => setShowAgentSettleModal({ name: agent.name, amount: rawCommission, shipperKey: agent.id || agent.shipperKey || agent.name, tdsRate: agent.tdsRate })}
+                      >
+                        Settle Commission
+                      </button>
+                    )}
                   </div>
-
-                  {isSettled ? (
-                    <span style={{ color: 'var(--accent-success)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
-                      <ShieldCheck size={14} /> Settled (TDS filed)
-                    </span>
-                  ) : (
-                    <button 
-                      className="btn-secondary" 
-                      style={{ padding: '6px 12px', fontSize: '0.76rem', width: '100%', justifyContent: 'center' }}
-                      onClick={() => setShowAgentSettleModal({ name: agent.name, amount: rawCommission, shipperKey: agent.shipperKey })}
-                    >
-                      Settle Commission
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </div>
 
-        {/* Column 3: Hired Lorry Settlements with Deduction Inputs */}
+        {/* Column 3: Hired Lorry & Driver Trip Settlements */}
         <div className="glass-panel" style={{ padding: '22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <Truck size={17} style={{ color: 'var(--accent-danger)' }} />
-            <h3 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--accent-danger)' }}>Hired Lorry Payouts</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Receipt size={17} style={{ color: 'var(--accent-danger)' }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--accent-danger)' }}>Trip & Advance Settlements</h3>
+            </div>
+            <span className="badge badge-danger" style={{ fontSize: '0.68rem' }}>OCR Audit Ready</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {trips.filter(t => {
-              if (!t.truckNo) return false;
-              const truckObj = trucks.find(tk => tk.regNo === t.truckNo);
-              return truckObj ? truckObj.ownership === 'attached' : (t.truckNo.startsWith('DL-1G') || t.truckNo.startsWith('HR-55'));
-            }).map(trip => {
+            {trips.map(trip => {
               const isSettled = settledTrips.includes(trip.id) || trip.status === 'Settled';
               const shortage = Number(shortageDeductions[trip.id] || 0);
               const late = Number(lateDeductions[trip.id] || 0);
               const misc = Number(miscDeductions[trip.id] || 0);
-              const netBalance = trip.contractRate - trip.driverAdvance - shortage - late - misc;
+              const isHired = trip.vehicleType === 'Market' || trip.vehicleType === 'Hired' || (trip.truckNo && (trip.truckNo.startsWith('DL-1G') || trip.truckNo.startsWith('HR-55')));
+              const advanceGiven = trip.driverAdvance || trip.advanceAmt || 20000;
+              const netBalance = (trip.contractRate || trip.totalFreight || 65000) - advanceGiven - shortage - late - misc;
 
               return (
                 <div key={trip.id} style={{ 
                   padding: '14px', 
-                  background: 'hsla(222, 22%, 12%, 0.6)', 
+                  background: 'var(--bg-elevated)', 
                   border: `1px solid ${isSettled ? 'var(--accent-success-glow)' : 'var(--border-subtle)'}`, 
                   borderRadius: 'var(--radius-md)', 
                   display: 'flex', 
@@ -525,93 +583,45 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
                   gap: '10px' 
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '700', fontSize: '0.875rem', fontFamily: 'var(--font-display)' }}>{trip.id}</span>
+                    <div>
+                      <span style={{ fontWeight: '700', fontSize: '0.875rem', fontFamily: 'var(--font-display)', color: 'var(--brand-light)' }}>{trip.id}</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '6px' }}>({trip.origin} ➔ {trip.destination})</span>
+                    </div>
                     <span className={`badge ${isSettled ? 'badge-success' : 'badge-warning'}`}>
-                      {isSettled ? 'Settled' : 'Balance Due'}
+                      {isSettled ? 'Settled' : 'Pending Audit'}
                     </span>
                   </div>
 
                   <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    <p>Owner: Shergill Roadlines</p>
-                    <p>Total Hire (Agreed): ₹{trip.contractRate?.toLocaleString('en-IN')}</p>
-                    <p>Advance Paid: ₹{trip.driverAdvance?.toLocaleString('en-IN')}</p>
+                    <p>Truck: <strong>{trip.truckNo || 'HR-55-AN-9021'}</strong> • Driver: <strong>{trip.driverName || 'Rajesh Kumar'}</strong></p>
+                    <p>Type: <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>{isHired ? 'Hired / Market Lorry' : 'Own Fleet Vehicle'}</span></p>
+                    <p>Advance Issued: <strong>₹{advanceGiven.toLocaleString('en-IN')}</strong></p>
                   </div>
 
-                  {/* Deduction Inputs (Only visible if not settled yet) */}
-                  {!isSettled ? (
-                    <div style={{ 
-                      background: 'var(--bg-elevated)', 
-                      padding: '10px 12px', 
-                      borderRadius: 'var(--radius-sm)', 
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px'
-                    }}>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>
-                        Deductions & Penalties
-                      </span>
-                      
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                        <div>
-                          <label style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>Shortage</label>
-                          <input 
-                            type="number" 
-                            placeholder="0"
-                            value={shortageDeductions[trip.id] || ''}
-                            onChange={(e) => setShortageDeductions({ ...shortageDeductions, [trip.id]: e.target.value })}
-                            style={{ width: '100%', padding: '4px', fontSize: '0.72rem', background: 'var(--bg-void)', border: '1px solid var(--border-subtle)', borderRadius: '3px', color: '#fff' }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>Late Del.</label>
-                          <input 
-                            type="number" 
-                            placeholder="0"
-                            value={lateDeductions[trip.id] || ''}
-                            onChange={(e) => setLateDeductions({ ...lateDeductions, [trip.id]: e.target.value })}
-                            style={{ width: '100%', padding: '4px', fontSize: '0.72rem', background: 'var(--bg-void)', border: '1px solid var(--border-subtle)', borderRadius: '3px', color: '#fff' }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>Mamool</label>
-                          <input 
-                            type="number" 
-                            placeholder="0"
-                            value={miscDeductions[trip.id] || ''}
-                            onChange={(e) => setMiscDeductions({ ...miscDeductions, [trip.id]: e.target.value })}
-                            style={{ width: '100%', padding: '4px', fontSize: '0.72rem', background: 'var(--bg-void)', border: '1px solid var(--border-subtle)', borderRadius: '3px', color: '#fff' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-subtle)', paddingTop: '6px', fontSize: '0.78rem' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Net Payable Balance:</span>
-                        <strong style={{ color: 'var(--accent-danger)' }}>₹{netBalance.toLocaleString('en-IN')}</strong>
+                  {isSettled ? (
+                    <div style={{ background: 'hsla(152,72%,48%,0.06)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-success-glow)', fontSize: '0.78rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-success)', fontWeight: '700' }}>
+                        <ShieldCheck size={16} /> Closed & Posted to Ledger
                       </div>
                     </div>
                   ) : (
-                    <div style={{ background: 'hsla(152,72%,48%,0.06)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-success-glow)', fontSize: '0.78rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <span>Deductions Applied:</span>
-                        <span style={{ color: 'var(--accent-danger)' }}>
-                          ₹{(shortage + late + misc).toLocaleString()}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-subtle)', paddingTop: '4px', fontWeight: '700' }}>
-                        <span>Total Paid Balance:</span>
-                        <span style={{ color: 'var(--accent-success)' }}>₹{netBalance.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {!isSettled && (
                     <button 
                       className="btn-primary" 
-                      style={{ justifyContent: 'center', padding: '8px', fontSize: '0.78rem', background: 'var(--accent-danger)', border: 'none', color: '#fff' }}
-                      onClick={() => handleSettleLorryHire(trip.id)}
+                      style={{
+                        justifyContent: 'center', 
+                        padding: '8px 12px', 
+                        fontSize: '0.8rem', 
+                        background: 'linear-gradient(135deg, #10b981, #059669)', 
+                        border: 'none', 
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: 700
+                      }}
+                      onClick={() => setSettlingTrip(trip)}
                     >
-                      Settle Lorry Payout
+                      <Sparkles size={14} /> Audit & Settle Trip Advances (OCR)
                     </button>
                   )}
                 </div>
@@ -656,7 +666,7 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
       </div>
 
       {/* Net Position Footer */}
-      <div className="glass-panel" style={{ padding: '22px', background: 'linear-gradient(135deg, hsla(35, 95%, 55%, 0.06) 0%, hsla(222, 22%, 14%, 0.8) 100%)', borderColor: 'hsla(35, 95%, 55%, 0.2)' }}>
+      <div className="glass-panel" style={{ padding: '22px', background: 'linear-gradient(135deg, hsla(205, 90%, 55%, 0.06) 0%, hsla(222, 22%, 14%, 0.8) 100%)', borderColor: 'hsla(205, 90%, 55%, 0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <TrendingDown size={20} style={{ color: 'var(--brand)' }} />
@@ -675,6 +685,15 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
           </div>
         </div>
       </div>
+
+      {/* Trip Settlement & OCR Audit Modal */}
+      {settlingTrip && (
+        <TripSettlementModal
+          trip={settlingTrip}
+          onClose={() => setSettlingTrip(null)}
+          onConfirmSettlement={handleConfirmTripSettlement}
+        />
+      )}
     </div>
   );
 }

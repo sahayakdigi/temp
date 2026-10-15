@@ -134,7 +134,7 @@ const worstSeverity = (stops) => {
 // ─── Single Stop Card ───────────────────────────────────────────────────────
 function StopCard({ stop, isFirst, isLast, index, total }) {
   if (stop.loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'hsla(220,20%,14%,0.6)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
       <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-void)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <RefreshCw size={14} color="var(--text-muted)" style={{ animation: 'spin 1s linear infinite' }} />
       </div>
@@ -214,7 +214,7 @@ function StopCard({ stop, isFirst, isLast, index, total }) {
           { icon: <CloudRain   size={11} />, label: 'Rain 6h', value: `${weather.precip6h} mm` },
         ].map(stat => (
           <div key={stat.label} style={{
-            background: 'rgba(0,0,0,0.25)', borderRadius: '6px',
+            background: 'var(--bg-void)', borderRadius: '6px',
             padding: '5px 6px', textAlign: 'center'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: 'var(--text-muted)', marginBottom: '2px' }}>

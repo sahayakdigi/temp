@@ -35,6 +35,10 @@ import {
   CheckCircle,
   AlertTriangle,
   Trash2,
+  Sun,
+  Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 
 // ── Error Boundary ──────────────────────────────────────────
@@ -94,8 +98,9 @@ const MENU_SECTIONS = [
 
 // ── Main App ────────────────────────────────────────────────
 export default function App() {
-  // ── Auth state ──
+  // ── Auth & Theme state ──
   const [currentUser, setCurrentUser] = useState(null);
+  const [theme, setTheme]             = useState(localStorage.getItem('temp-theme') || 'dark');
 
   // ── Data state ──
   const [lrs, setLrs]               = useState([]);
@@ -130,6 +135,29 @@ export default function App() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  // ── Responsive Mobile Menu State ──
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        setShowNotifDropdown(false);
+      }
+    };
+    const handleResize = () => {
+      if (window.innerWidth > 1024) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   useEffect(() => {
     api.getLRs().then(setLrs).catch(err => console.error('Failed to load LRs:', err));
     api.getTrucks().then(setTrucks).catch(err => console.error('Failed to load Trucks:', err));
@@ -141,13 +169,27 @@ export default function App() {
     api.getManifests().then(setManifests).catch(err => console.error('Failed to load Manifests:', err));
     api.getRates().then(setRates).catch(err => console.error('Failed to load Rates:', err));
 
+    // Load saved theme mode (Dark vs Light)
+    const savedTheme = localStorage.getItem('temp-theme') || 'dark';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (savedTheme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+
     // Load saved accent color from localStorage
     const savedAccent = localStorage.getItem('temp-accent');
     if (savedAccent) {
       const accentsMap = {
-        saffron: { color: 'hsl(35, 95%, 55%)', deep: 'hsl(28, 92%, 48%)', light: 'hsl(40, 95%, 62%)', glow: 'hsla(35, 95%, 55%, 0.1)' },
-        emerald: { color: 'hsl(152, 72%, 48%)', deep: 'hsl(152, 80%, 40%)', light: 'hsl(152, 65%, 58%)', glow: 'hsla(152, 72%, 48%, 0.1)' },
-        cobalt: { color: 'hsl(220, 95%, 60%)', deep: 'hsl(220, 90%, 50%)', light: 'hsl(220, 85%, 68%)', glow: 'hsla(220, 95%, 60%, 0.1)' }
+        'sky-blue': { color: 'hsl(200, 95%, 55%)', deep: 'hsl(210, 90%, 46%)', light: 'hsl(195, 95%, 68%)', glow: 'hsla(200, 95%, 55%, 0.14)' },
+        'ocean-cobalt': { color: 'hsl(218, 92%, 58%)', deep: 'hsl(220, 90%, 48%)', light: 'hsl(215, 90%, 68%)', glow: 'hsla(218, 92%, 58%, 0.14)' },
+        'cyan-teal': { color: 'hsl(185, 90%, 50%)', deep: 'hsl(188, 85%, 40%)', light: 'hsl(180, 90%, 65%)', glow: 'hsla(185, 90%, 50%, 0.14)' },
+        emerald: { color: 'hsl(152, 72%, 48%)', deep: 'hsl(152, 80%, 40%)', light: 'hsl(152, 65%, 58%)', glow: 'hsla(152, 72%, 48%, 0.14)' },
+        // Fallbacks
+        saffron: { color: 'hsl(200, 95%, 55%)', deep: 'hsl(210, 90%, 46%)', light: 'hsl(195, 95%, 68%)', glow: 'hsla(200, 95%, 55%, 0.14)' },
+        cobalt: { color: 'hsl(218, 92%, 58%)', deep: 'hsl(220, 90%, 48%)', light: 'hsl(215, 90%, 68%)', glow: 'hsla(218, 92%, 58%, 0.14)' }
       };
       const selected = accentsMap[savedAccent];
       if (selected) {
@@ -160,6 +202,18 @@ export default function App() {
       }
     }
   }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('temp-theme', nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    if (nextTheme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  };
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -216,10 +270,10 @@ export default function App() {
     switch (currentTab) {
       case 'dashboard':   return <Dashboard trips={trips} lrs={lrs} manifests={manifests} userRole={currentUser.role} activeBranch={currentUser.branch} branches={branches} setBranches={setBranches} onNavigate={setCurrentTab} />;
       case 'booking':     return <Booking lrs={lrs} setLrs={setLrs} trips={trips} setTrips={setTrips} parties={parties} rateCards={rates} trucks={trucks} drivers={drivers} />;
-      case 'manifest':    return <HubManifest lrs={lrs} setLrs={setLrs} manifests={manifests} setManifests={setManifests} trucks={trucks} drivers={drivers} currentUser={currentUser} branches={branches} />;
+      case 'manifest':    return <HubManifest lrs={lrs} setLrs={setLrs} manifests={manifests} setManifests={setManifests} trucks={trucks} drivers={drivers} currentUser={currentUser} branches={branches} parties={parties} />;
       case 'ledger':      return <DigitalLedger trips={trips} setTrips={setTrips} lrs={lrs} setLrs={setLrs} manifests={manifests} branches={branches} />;
-      case 'settlement':  return <ErrorBoundary><BillingSettlement lrs={lrs} setLrs={setLrs} trips={trips} setTrips={setTrips} vehicleOwners={vehicleOwners} trucks={trucks} /></ErrorBoundary>;
-      case 'warehouse':   return <WarehouseOps lrs={lrs} setLrs={setLrs} />;
+      case 'settlement':  return <ErrorBoundary><BillingSettlement lrs={lrs} setLrs={setLrs} trips={trips} setTrips={setTrips} vehicleOwners={vehicleOwners} trucks={trucks} parties={parties} /></ErrorBoundary>;
+      case 'warehouse':   return <WarehouseOps lrs={lrs} setLrs={setLrs} branches={branches} onNavigate={setCurrentTab} />;
       case 'fleet':       return <FleetManagement trucks={trucks} setTrucks={setTrucks} drivers={drivers} setDrivers={setDrivers} />;
       case 'masters':     return <Masters branches={branches} setBranches={setBranches} parties={parties} setParties={setParties} rateCards={rates} vehicleOwners={vehicleOwners} setVehicleOwners={setVehicleOwners} lrs={lrs} />;
       case 'settings':    return <SettingsScreen currentUser={currentUser} onUserUpdate={(updated) => setCurrentUser(updated)} />;
@@ -230,18 +284,34 @@ export default function App() {
   return (
     <div className="app-grid">
 
+      {/* Mobile Backdrop Overlay */}
+      <div 
+        className={`sidebar-backdrop ${mobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* ── Sidebar ── */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
 
         {/* Brand */}
         <div className="sidebar-brand">
-          <div className="sidebar-logo">
-            <Package size={18} strokeWidth={2.5} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="sidebar-logo">
+              <Package size={18} strokeWidth={2.5} />
+            </div>
+            <div>
+              <div className="sidebar-brand-name">TEMP</div>
+              <div className="sidebar-brand-tagline">Unified Fleet Ops</div>
+            </div>
           </div>
-          <div>
-            <div className="sidebar-brand-name">TEMP</div>
-            <div className="sidebar-brand-tagline">Unified Fleet Ops</div>
-          </div>
+          <button 
+            className="sidebar-close-btn"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close Navigation Menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Navigation — only show tabs the user can access */}
@@ -259,7 +329,10 @@ export default function App() {
                     <button
                       key={item.id}
                       className={`sidebar-item ${active ? 'active' : ''}`}
-                      onClick={() => setCurrentTab(item.id)}
+                      onClick={() => {
+                        setCurrentTab(item.id);
+                        setMobileMenuOpen(false);
+                      }}
                     >
                       <span className="nav-icon">
                         <Icon size={16} strokeWidth={active ? 2.5 : 2} />
@@ -316,16 +389,27 @@ export default function App() {
         {/* Top Header */}
         <header className="topbar">
 
-          {/* Left: Active workspace indicator */}
-          <div className="topbar-badge">
-            {currentUser.branchLabel} — {currentUser.branch}
+          {/* Left: Mobile menu toggle + Active workspace indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              aria-label="Toggle navigation menu"
+            >
+              <Menu size={18} />
+            </button>
+
+            <div className="topbar-badge">
+              <span className="topbar-badge-text">{currentUser.branchLabel} — {currentUser.branch}</span>
+              <span className="topbar-badge-short">{currentUser.branch}</span>
+            </div>
           </div>
 
           {/* Right: User info & controls */}
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
 
             {/* Role badge */}
-            <div style={{
+            <div className="topbar-role-badge" style={{
               display: 'flex', alignItems: 'center', gap: '7px',
               padding: '5px 12px',
               background: roleInfo.bg || 'var(--bg-elevated)',
@@ -335,10 +419,10 @@ export default function App() {
               color: roleInfo.color || 'var(--text-secondary)',
             }}>
               <ShieldCheck size={13} />
-              {currentUser.role}
+              <span>{currentUser.role}</span>
             </div>
 
-            <div style={{ width: '1px', height: '26px', background: 'var(--border-subtle)' }} />
+            <div className="topbar-divider" style={{ width: '1px', height: '26px', background: 'var(--border-subtle)' }} />
 
             {/* User pill */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -347,18 +431,38 @@ export default function App() {
                 background: 'linear-gradient(135deg, var(--brand-deep), var(--brand))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.68rem', fontWeight: '700', color: '#fff',
-                boxShadow: '0 0 0 2px hsla(35,95%,55%,0.25)',
+                boxShadow: '0 0 0 2px hsla(205, 90%, 55%,0.25)',
                 flexShrink: 0,
               }}>
                 {currentUser.avatar}
               </div>
-              <div style={{ lineHeight: '1.25' }}>
+              <div className="topbar-user-text" style={{ lineHeight: '1.25' }}>
                 <div style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-primary)' }}>{currentUser.name}</div>
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{currentUser.branch} Branch</div>
               </div>
             </div>
 
-            <div style={{ width: '1px', height: '26px', background: 'var(--border-subtle)' }} />
+            <div className="topbar-divider" style={{ width: '1px', height: '26px', background: 'var(--border-subtle)' }} />
+
+            {/* Theme Toggle Button (Light/Dark Mode) */}
+            <button
+              className="theme-toggle-btn"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to Light (White) Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Color Theme"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun size={15} style={{ color: 'var(--brand-light)' }} />
+                  <span className="theme-toggle-text" style={{ fontSize: '0.78rem', fontWeight: '600' }}>Light</span>
+                </>
+              ) : (
+                <>
+                  <Moon size={15} style={{ color: 'var(--accent-info)' }} />
+                  <span className="theme-toggle-text" style={{ fontSize: '0.78rem', fontWeight: '600' }}>Dark</span>
+                </>
+              )}
+            </button>
 
             {/* Bell Alerts */}
             <div className="bell-btn-container" style={{ position: 'relative' }}>
@@ -389,7 +493,7 @@ export default function App() {
               {/* Notifications Dropdown (Popover) */}
               {showNotifDropdown && (
                 <div 
-                  className="glass-panel" 
+                  className="glass-panel notif-dropdown" 
                   style={{
                     position: 'absolute',
                     top: '36px',

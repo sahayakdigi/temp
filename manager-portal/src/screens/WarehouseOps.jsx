@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, FileText, CheckCircle, Barcode, Grid, Plus, ArrowRightLeft, AlertTriangle, Box, ShieldAlert, Printer, X, Eye } from 'lucide-react';
+import { Layers, FileText, CheckCircle, Barcode, Grid, Plus, ArrowRightLeft, AlertTriangle, Box, ShieldAlert, Printer, X, Eye, Trash2, Truck, Navigation, ExternalLink, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 
 const DEFAULT_BINS = {
@@ -27,7 +27,7 @@ const getStoredDiscrepancies = () => {
   return [];
 };
 
-export default function WarehouseOps({ lrs, setLrs }) {
+export default function WarehouseOps({ lrs, setLrs, branches, onNavigate }) {
   const pendingLrs = lrs.filter(l => l.status === 'Booked' || l.status === 'Crossing');
 
   // --- Active Tab ---
@@ -44,6 +44,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
   // --- Visual Rack Inspector Drawer & Bin Transfer States ---
   const [inspectedBinId, setInspectedBinId] = useState(null);
   const [transferTargetBin, setTransferTargetBin] = useState('');
+  const [shiftTargetWarehouse, setShiftTargetWarehouse] = useState('');
 
   // --- Barcode Scanner Simulator States ---
   const [scannedTagInput, setScannedTagInput] = useState('');
@@ -473,6 +474,162 @@ export default function WarehouseOps({ lrs, setLrs }) {
       .catch(err => alert(`Failed to update consignment status: ${err.message}`));
   };
 
+  // Get all LRs stored in a specific bin
+  const getLrsInBin = (binId) => {
+    if (!binId) return [];
+    return lrs.filter(lr => {
+      const binVal = lr.warehouseBin || lr.warehouse_bin;
+      if (!binVal) return false;
+      if (typeof binVal === 'string' && binVal.startsWith('[')) {
+        try {
+          const arr = JSON.parse(binVal);
+          return arr.some(a => a.bin === binId);
+        } catch(e) { return false; }
+      } else if (Array.isArray(binVal)) {
+        return binVal.some(a => a.bin === binId);
+      }
+      return binVal === binId;
+    });
+  };
+
+  // Helper to remove / unallocate cargo from a bin (free up bin space)
+  const handleRemoveFromBin = async (lrNo, binId) => {
+    const lrObj = lrs.find(l => (l.lrNo || l.lr_no) === lrNo);
+    if (!lrObj) return;
+
+    let newBinVal = null;
+    const currentBinVal = lrObj.warehouseBin || lrObj.warehouse_bin;
+    if (typeof currentBinVal === 'string' && currentBinVal.startsWith('[')) {
+      try {
+        const arr = JSON.parse(currentBinVal);
+        const filtered = arr.filter(a => a.bin !== binId);
+        newBinVal = filtered.length > 0 ? JSON.stringify(filtered) : null;
+      } catch(e) { newBinVal = null; }
+    } else if (Array.isArray(currentBinVal)) {
+      const filtered = currentBinVal.filter(a => a.bin !== binId);
+      newBinVal = filtered.length > 0 ? filtered : null;
+    } else {
+      newBinVal = null;
+    }
+
+    try {
+      await api.updateLR(lrNo, { warehouse_bin: newBinVal, status: 'AtHub' });
+      setLrs(prev => prev.map(l => (l.lrNo || l.lr_no) === lrNo ? { ...l, warehouseBin: newBinVal, warehouse_bin: newBinVal, status: 'AtHub' } : l));
+      setSuccessMsg(`✓ Unallocated LR ${lrNo} from Bin ${binId}. Bin rack space is now released.`);
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err) {
+      alert(`Failed to remove cargo from bin: ${err.message}`);
+    }
+  };
+
+  // Helper to shift cargo to another warehouse / branch location
+  const handleShiftWarehouse = async (lrNo, binId, targetHub) => {
+    if (!targetHub) {
+      alert('Please select a destination warehouse or branch.');
+      return;
+    }
+    const lrObj = lrs.find(l => (l.lrNo || l.lr_no) === lrNo);
+    if (!lrObj) return;
+
+    let newBinVal = null;
+    const currentBinVal = lrObj.warehouseBin || lrObj.warehouse_bin;
+    if (typeof currentBinVal === 'string' && currentBinVal.startsWith('[')) {
+      try {
+        const arr = JSON.parse(currentBinVal);
+        const filtered = arr.filter(a => a.bin !== binId);
+        newBinVal = filtered.length > 0 ? JSON.stringify(filtered) : null;
+      } catch(e) { newBinVal = null; }
+    } else if (Array.isArray(currentBinVal)) {
+      const filtered = currentBinVal.filter(a => a.bin !== binId);
+      newBinVal = filtered.length > 0 ? filtered : null;
+    } else {
+      newBinVal = null;
+    }
+
+    try {
+      await api.updateLR(lrNo, {
+        warehouse_bin: newBinVal,
+        current_location: targetHub,
+        status: 'Crossing'
+      });
+      setLrs(prev => prev.map(l => (l.lrNo || l.lr_no) === lrNo ? {
+        ...l,
+        warehouseBin: newBinVal,
+        warehouse_bin: newBinVal,
+        currentLocation: targetHub,
+        current_location: targetHub,
+        status: 'Crossing'
+      } : l));
+      setSuccessMsg(`✓ Cargo ${lrNo} marked as Shifted to ${targetHub} Warehouse! Bin ${binId} space is now freed.`);
+      setShiftTargetWarehouse('');
+      setTimeout(() => setSuccessMsg(''), 6000);
+    } catch (err) {
+      alert(`Failed to shift cargo: ${err.message}`);
+    }
+  };
+
+  // Helper to mark cargo as transported / dispatched
+  const handleDispatchTransport = async (lrNo, binId) => {
+    const lrObj = lrs.find(l => (l.lrNo || l.lr_no) === lrNo);
+    if (!lrObj) return;
+
+    let newBinVal = null;
+    const currentBinVal = lrObj.warehouseBin || lrObj.warehouse_bin;
+    if (typeof currentBinVal === 'string' && currentBinVal.startsWith('[')) {
+      try {
+        const arr = JSON.parse(currentBinVal);
+        const filtered = arr.filter(a => a.bin !== binId);
+        newBinVal = filtered.length > 0 ? JSON.stringify(filtered) : null;
+      } catch(e) { newBinVal = null; }
+    } else if (Array.isArray(currentBinVal)) {
+      const filtered = currentBinVal.filter(a => a.bin !== binId);
+      newBinVal = filtered.length > 0 ? filtered : null;
+    } else {
+      newBinVal = null;
+    }
+
+    try {
+      await api.updateLR(lrNo, {
+        warehouse_bin: newBinVal,
+        status: 'Dispatched'
+      });
+      setLrs(prev => prev.map(l => (l.lrNo || l.lr_no) === lrNo ? {
+        ...l,
+        warehouseBin: newBinVal,
+        warehouse_bin: newBinVal,
+        status: 'Dispatched'
+      } : l));
+      setSuccessMsg(`✓ Cargo ${lrNo} dispatched for transport! Bin ${binId} space is now freed.`);
+      setTimeout(() => setSuccessMsg(''), 6000);
+    } catch (err) {
+      alert(`Failed to dispatch cargo: ${err.message}`);
+    }
+  };
+
+  // Helper to delete an empty custom bin
+  const handleDeleteBin = (binId) => {
+    if (DEFAULT_BINS[binId]) {
+      alert(`Bin "${binId}" is a standard base rack and cannot be deleted.`);
+      return;
+    }
+    if (bins[binId]?.occupied || bins[binId]?.count > 0) {
+      alert(`Cannot delete Bin "${binId}" because it currently has stored cargo! Please unallocate or transfer the cargo first.`);
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete warehouse bin "${binId}"?`)) return;
+
+    setStoredBins(prev => {
+      const updated = { ...prev };
+      delete updated[binId];
+      localStorage.setItem('temp_warehouse_bins', JSON.stringify(updated));
+      return updated;
+    });
+
+    setInspectedBinId(null);
+    setSuccessMsg(`✓ Custom Bin "${binId}" has been deleted.`);
+    setTimeout(() => setSuccessMsg(''), 5000);
+  };
+
   // --- Bin Transfer Settle ---
   const handleBinTransfer = (e) => {
     e.preventDefault();
@@ -488,16 +645,30 @@ export default function WarehouseOps({ lrs, setLrs }) {
       return;
     }
 
-    // Update LR reference
-    const associatedLr = sourceBinObj.lr;
-    api.updateLR(associatedLr, { warehouse_bin: transferTargetBin })
-      .then(() => {
-        setLrs(prevLrs => prevLrs.map(l => (l.lrNo || l.lr_no) === associatedLr ? { ...l, warehouseBin: transferTargetBin } : l));
-        setSuccessMsg(`Bin transfer complete! Moved cargo from ${inspectedBinId} to ${transferTargetBin}.`);
-        setInspectedBinId(null);
-        setTimeout(() => setSuccessMsg(''), 4000);
-      })
-      .catch(err => alert(`Failed to register bin transfer: ${err.message}`));
+    // Update all LRs in the bin
+    const binLrs = getLrsInBin(inspectedBinId);
+    binLrs.forEach(async (lr) => {
+      const lrId = lr.lrNo || lr.lr_no;
+      let newBinVal = transferTargetBin;
+      const currentBinVal = lr.warehouseBin || lr.warehouse_bin;
+      if (typeof currentBinVal === 'string' && currentBinVal.startsWith('[')) {
+        try {
+          const arr = JSON.parse(currentBinVal);
+          const mapped = arr.map(a => a.bin === inspectedBinId ? { ...a, bin: transferTargetBin } : a);
+          newBinVal = JSON.stringify(mapped);
+        } catch(e) { newBinVal = transferTargetBin; }
+      }
+      try {
+        await api.updateLR(lrId, { warehouse_bin: newBinVal });
+        setLrs(prev => prev.map(l => (l.lrNo || l.lr_no) === lrId ? { ...l, warehouseBin: newBinVal, warehouse_bin: newBinVal } : l));
+      } catch (err) {
+        console.error(`Failed to transfer LR ${lrId}:`, err);
+      }
+    });
+
+    setSuccessMsg(`✓ Bin transfer complete! Moved cargo from ${inspectedBinId} to ${transferTargetBin}.`);
+    setTransferTargetBin('');
+    setTimeout(() => setSuccessMsg(''), 4000);
   };
 
   // --- Drag & Drop Bin Transfer ---
@@ -514,14 +685,28 @@ export default function WarehouseOps({ lrs, setLrs }) {
       return;
     }
 
-    const associatedLr = sourceBinObj.lr;
-    api.updateLR(associatedLr, { warehouse_bin: targetId })
-      .then(() => {
-        setLrs(prevLrs => prevLrs.map(l => (l.lrNo || l.lr_no) === associatedLr ? { ...l, warehouseBin: targetId } : l));
-        setSuccessMsg(`Drag-and-drop transfer complete! Moved cargo from ${sourceId} to ${targetId}.`);
-        setTimeout(() => setSuccessMsg(''), 4000);
-      })
-      .catch(err => alert(`Failed to register bin transfer: ${err.message}`));
+    const binLrs = getLrsInBin(sourceId);
+    binLrs.forEach(async (lr) => {
+      const lrId = lr.lrNo || lr.lr_no;
+      let newBinVal = targetId;
+      const currentBinVal = lr.warehouseBin || lr.warehouse_bin;
+      if (typeof currentBinVal === 'string' && currentBinVal.startsWith('[')) {
+        try {
+          const arr = JSON.parse(currentBinVal);
+          const mapped = arr.map(a => a.bin === sourceId ? { ...a, bin: targetId } : a);
+          newBinVal = JSON.stringify(mapped);
+        } catch(e) { newBinVal = targetId; }
+      }
+      try {
+        await api.updateLR(lrId, { warehouse_bin: newBinVal });
+        setLrs(prev => prev.map(l => (l.lrNo || l.lr_no) === lrId ? { ...l, warehouseBin: newBinVal, warehouse_bin: newBinVal } : l));
+      } catch (err) {
+        console.error(`Failed to drag transfer LR ${lrId}:`, err);
+      }
+    });
+
+    setSuccessMsg(`✓ Drag-and-drop transfer complete! Moved cargo from ${sourceId} to ${targetId}.`);
+    setTimeout(() => setSuccessMsg(''), 4000);
   };
 
   // --- Barcode Scanner lookup simulator (FR-5.3) ---
@@ -568,7 +753,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
   const occupancyPct  = Math.round((totalOccupied / totalBins) * 100);
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="animate-fade-in responsive-page-pad" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* Page Header */}
       <div className="page-header">
@@ -649,7 +834,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
       )}
 
       {/* Sub-Tab Navigation Toggle */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-default)', gap: '20px', paddingBottom: '2px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid var(--border-default)', gap: '12px', paddingBottom: '2px' }}>
         <button 
           onClick={() => setActiveSubTab('inbound')}
           style={{ 
@@ -678,7 +863,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
       </div>
 
       {activeSubTab === 'inbound' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.7fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
 
           {/* Left Panel: Goods Inbound Form */}
           <div className="glass-panel" style={{ padding: '22px' }}>
@@ -704,7 +889,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
               </div>
 
               {activeLrObj && (
-                <div style={{ padding: '12px 14px', background: 'var(--brand-glow-lg)', border: '1px solid hsla(35,95%,55%,0.15)', borderRadius: 'var(--radius-md)', fontSize: '0.84rem' }}>
+                <div style={{ padding: '12px 14px', background: 'var(--brand-glow-lg)', border: '1px solid hsla(205, 90%, 55%,0.15)', borderRadius: 'var(--radius-md)', fontSize: '0.84rem' }}>
                   <p><strong>Private Mark:</strong> {activeLrObj.privateMark || activeLrObj.private_mark || 'N/A'}</p>
                   <p style={{ marginTop: '3px' }}><strong>Commodity:</strong> {activeLrObj.saidToContain || activeLrObj.said_to_contain || 'Electronic Goods'}</p>
                   <p style={{ marginTop: '3px' }}><strong>Booked Qty:</strong> {activeLrObj.articles} Articles ({activeLrObj.chargeWt || activeLrObj.charge_wt} kg)</p>
@@ -797,7 +982,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
                 </div>
               ) : (
                 /* MULTI-BIN SPLIT ALLOCATION MATRIX */
-                <div style={{ background: 'hsla(222, 24%, 10%, 0.6)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--brand-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ background: 'var(--bg-elevated)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--brand-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--brand)' }}>
                       <Layers size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
@@ -992,8 +1177,8 @@ export default function WarehouseOps({ lrs, setLrs }) {
                       }}
                       style={{
                         height: '120px',
-                        border: bin.occupied ? '1px solid hsla(35, 95%, 55%, 0.35)' : '1.5px dashed var(--border-subtle)',
-                        background: bin.occupied ? 'hsla(35, 95%, 55%, 0.05)' : 'hsla(222, 22%, 12%, 0.4)',
+                        border: bin.occupied ? '1px solid hsla(205, 90%, 55%, 0.35)' : '1.5px dashed var(--border-subtle)',
+                        background: bin.occupied ? 'hsla(205, 90%, 55%, 0.05)' : 'hsla(222, 22%, 12%, 0.4)',
                         borderRadius: 'var(--radius-md)',
                         display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
                         gap: '6px', cursor: bin.occupied ? 'grab' : 'pointer',
@@ -1052,7 +1237,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
                     </div>
                   ))}
                   {generatedTags.length > 4 && (
-                    <div style={{ minWidth: '95px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic', background: 'hsla(222, 22%, 12%, 0.4)', borderRadius: '6px', border: '1px dashed var(--border-subtle)' }}>
+                    <div style={{ minWidth: '95px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic', background: 'var(--bg-elevated)', borderRadius: '6px', border: '1px dashed var(--border-subtle)' }}>
                       +{generatedTags.length - 4} more
                     </div>
                   )}
@@ -1070,7 +1255,8 @@ export default function WarehouseOps({ lrs, setLrs }) {
             <span className="badge badge-warning" style={{ marginLeft: 'auto' }}>{discrepancies.length} Issues Logged</span>
           </div>
 
-          <table className="table-premium">
+          <div className="table-responsive">
+            <table className="table-premium">
             <thead>
               <tr>
                 <th>Discrepancy Ref</th>
@@ -1111,6 +1297,7 @@ export default function WarehouseOps({ lrs, setLrs }) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -1146,11 +1333,11 @@ export default function WarehouseOps({ lrs, setLrs }) {
             <div>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}><strong>Bin Classification:</strong> {bins[inspectedBinId].description}</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
-                <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ background: 'var(--bg-elevated)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Occupied Capacity</span>
                   <p style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>{bins[inspectedBinId].count} / {bins[inspectedBinId].maxCapacity} pkgs</p>
                 </div>
-                <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ background: 'var(--bg-elevated)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Estimated Weight</span>
                   <p style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>{bins[inspectedBinId].weight} kg</p>
                 </div>
@@ -1159,57 +1346,167 @@ export default function WarehouseOps({ lrs, setLrs }) {
 
             {/* Cargo specifics */}
             {bins[inspectedBinId].occupied ? (
-              <div style={{ background: 'var(--brand-glow-lg)', border: '1px solid hsla(35,95%,55%,0.15)', padding: '14px', borderRadius: '8px', fontSize: '0.82rem' }}>
-                <h4 style={{ fontWeight: '700', borderBottom: '1px dashed rgba(255,255,255,0.15)', paddingBottom: '4px', marginBottom: '8px' }}>Active Cargo Details</h4>
-                <p><strong>LR Number:</strong> {bins[inspectedBinId].lr}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '55vh', overflowY: 'auto', paddingRight: '2px' }}>
                 {(() => {
-                  const cellLr = lrs.find(l => (l.lrNo || l.lr_no) === bins[inspectedBinId].lr);
-                  return cellLr ? (
-                    <>
-                      <p style={{ marginTop: '4px' }}><strong>Shipper:</strong> {cellLr.consignor}</p>
-                      <p style={{ marginTop: '4px' }}><strong>Consignee:</strong> {cellLr.consignee}</p>
-                      <p style={{ marginTop: '4px' }}><strong>Destination:</strong> {cellLr.destination}</p>
-                      <p style={{ marginTop: '4px' }}><strong>Goods Mark:</strong> {cellLr.privateMark || cellLr.private_mark || 'N/A'}</p>
-                    </>
-                  ) : null;
+                  const binLrs = getLrsInBin(inspectedBinId);
+                  if (binLrs.length === 0) {
+                    return (
+                      <div style={{ background: 'var(--brand-glow-lg)', border: '1px solid hsla(205, 90%, 55%,0.15)', padding: '14px', borderRadius: '8px', fontSize: '0.82rem' }}>
+                        <p><strong>Cargo Ref:</strong> {bins[inspectedBinId].lr}</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.76rem', marginTop: '4px' }}>Allocated in system putaway.</p>
+                      </div>
+                    );
+                  }
+
+                  return binLrs.map(cellLr => {
+                    const lrId = cellLr.lrNo || cellLr.lr_no;
+                    return (
+                      <div key={lrId} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', padding: '14px', borderRadius: '8px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.15)', paddingBottom: '6px' }}>
+                          <span style={{ fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--brand-light)', fontSize: '0.9rem' }}>{lrId}</span>
+                          <span className="badge badge-brand">{cellLr.status || 'AtHub'}</span>
+                        </div>
+
+                        <div>
+                          <p><strong>Shipper:</strong> {cellLr.consignor}</p>
+                          <p style={{ marginTop: '3px' }}><strong>Consignee:</strong> {cellLr.consignee}</p>
+                          <p style={{ marginTop: '3px' }}><strong>Destination:</strong> {cellLr.destination}</p>
+                          <p style={{ marginTop: '3px' }}><strong>Goods Mark:</strong> {cellLr.privateMark || cellLr.private_mark || 'N/A'}</p>
+                          <p style={{ marginTop: '3px' }}><strong>Weight / Articles:</strong> {Number(cellLr.chargeWt || cellLr.charge_wt || 0).toLocaleString()} kg ({cellLr.articles} pkgs)</p>
+                        </div>
+
+                        <div className="divider" style={{ margin: '2px 0' }} />
+
+                        {/* Action 1 & 2: Remove from Bin or Dispatch */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveFromBin(lrId, inspectedBinId)}
+                            className="btn-ghost"
+                            style={{ padding: '6px 10px', fontSize: '0.74rem', color: 'var(--accent-danger)', borderColor: 'hsla(4, 86%, 58%, 0.3)', justifyContent: 'center' }}
+                            title="Removes this cargo from the storage bin and releases the rack space"
+                          >
+                            <Trash2 size={13} /> Unallocate from Bin
+                          </button>
+
+                          <button 
+                            type="button"
+                            onClick={() => handleDispatchTransport(lrId, inspectedBinId)}
+                            className="btn-primary"
+                            style={{ padding: '6px 10px', fontSize: '0.74rem', justifyContent: 'center', background: 'linear-gradient(90deg, var(--brand-deep), var(--brand))' }}
+                            title="Marks cargo as dispatched for transport"
+                          >
+                            <Truck size={13} /> Dispatch / Transport
+                          </button>
+                        </div>
+
+                        {/* Action 3: Shift to Another Hub / Warehouse */}
+                        <div style={{ background: 'hsla(210, 90%, 55%, 0.06)', border: '1px solid hsla(210, 90%, 55%, 0.2)', padding: '10px', borderRadius: '6px' }}>
+                          <label className="label-premium" style={{ fontSize: '0.74rem', color: 'var(--brand-light)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Navigation size={13} /> Shift to Another Warehouse / Branch
+                          </label>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <select 
+                              className="input-premium"
+                              style={{ padding: '5px 8px', fontSize: '0.76rem', flex: 1 }}
+                              value={shiftTargetWarehouse}
+                              onChange={e => setShiftTargetWarehouse(e.target.value)}
+                            >
+                              <option value="">-- Choose Warehouse --</option>
+                              {(branches && branches.length > 0 ? branches : [
+                                { id: 'BOM', name: 'Mumbai Warehouse / Hub' },
+                                { id: 'BLR', name: 'Bangalore Warehouse / Hub' },
+                                { id: 'DEL', name: 'Delhi Warehouse / Hub' },
+                                { id: 'CCU', name: 'Kolkata Warehouse / Hub' },
+                                { id: 'MAA', name: 'Chennai Warehouse / Hub' },
+                                { id: 'JAI', name: 'Jaipur Transshipment Hub' }
+                              ]).map(b => (
+                                <option key={b.id} value={b.id || b.name}>{b.name || b.id} ({b.id})</option>
+                              ))}
+                            </select>
+                            <button 
+                              type="button"
+                              disabled={!shiftTargetWarehouse}
+                              onClick={() => handleShiftWarehouse(lrId, inspectedBinId, shiftTargetWarehouse)}
+                              className="btn-primary"
+                              style={{ padding: '5px 12px', fontSize: '0.74rem' }}
+                            >
+                              Shift
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Action 4: Internal Bin Transfer */}
+                        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '6px' }}>
+                          <label className="label-premium" style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <ArrowRightLeft size={13} /> Internal Bin Transfer (Same Warehouse)
+                          </label>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <select 
+                              className="input-premium" 
+                              style={{ padding: '5px 8px', fontSize: '0.76rem', flex: 1 }}
+                              value={transferTargetBin} 
+                              onChange={e => setTransferTargetBin(e.target.value)}
+                            >
+                              <option value="">-- Choose Target Empty Bin --</option>
+                              {Object.keys(bins).filter(b => b !== inspectedBinId && !bins[b].occupied).map(b => (
+                                <option key={b} value={b}>{b} — {bins[b].description} ({bins[b].maxCapacity} max)</option>
+                              ))}
+                            </select>
+                            <button 
+                              type="button" 
+                              disabled={!transferTargetBin}
+                              onClick={handleBinTransfer}
+                              className="btn-primary" 
+                              style={{ padding: '5px 12px', fontSize: '0.74rem' }}
+                            >
+                              Move
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
                 })()}
 
-                {/* Bin transfer action form (FR-5.2) */}
-                <form onSubmit={handleBinTransfer} style={{ marginTop: '16px', borderTop: '1px solid hsla(35,95%,55%,0.2)', paddingTop: '14px' }}>
-                  <label className="label-premium" style={{ fontSize: '0.76rem', color: 'var(--brand-light)' }}>
-                    <ArrowRightLeft size={13} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Transfer Cargo to Empty Bin
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                    <select 
-                      className="input-premium" 
-                      style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                      value={transferTargetBin} 
-                      onChange={e => setTransferTargetBin(e.target.value)}
-                    >
-                      <option value="">-- Choose Target Bin --</option>
-                      {Object.keys(bins).filter(b => b !== inspectedBinId && !bins[b].occupied).map(b => (
-                        <option key={b} value={b}>{b} — {bins[b].description} ({bins[b].maxCapacity} max)</option>
-                      ))}
-                    </select>
-                    <button 
-                      type="submit" 
-                      disabled={!transferTargetBin}
-                      className="btn-primary" 
-                      style={{ padding: '0 14px', fontSize: '0.8rem' }}
-                    >
-                      Move
-                    </button>
-                  </div>
-                </form>
+                {onNavigate && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setInspectedBinId(null);
+                      onNavigate('manifest');
+                    }}
+                    className="toggle-btn"
+                    style={{ padding: '8px 12px', fontSize: '0.78rem', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}
+                  >
+                    <ExternalLink size={14} /> Open Line-Haul Manifest Builder (Consolidated Vehicle Dispatch)
+                  </button>
+                )}
               </div>
             ) : (
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>This bin location has no stored cargo. Space is available for putaway.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '18px 0', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>This bin location has no stored cargo. Space is available for putaway.</p>
+                {!DEFAULT_BINS[inspectedBinId] && (
+                  <button 
+                    type="button"
+                    onClick={() => handleDeleteBin(inspectedBinId)}
+                    className="btn-ghost"
+                    style={{ color: 'var(--accent-danger)', borderColor: 'hsla(4, 86%, 58%, 0.3)', padding: '6px 14px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Trash2 size={14} /> Delete Custom Bin {inspectedBinId}
+                  </button>
+                )}
+              </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
               <button 
                 type="button" 
-                onClick={() => setInspectedBinId(null)}
+                onClick={() => {
+                  setInspectedBinId(null);
+                  setTransferTargetBin('');
+                  setShiftTargetWarehouse('');
+                }}
                 className="toggle-btn" 
                 style={{ padding: '6px 16px', fontSize: '0.8rem' }}
               >

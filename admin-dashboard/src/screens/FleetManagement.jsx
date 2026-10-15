@@ -377,7 +377,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
   ];
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px' }}>
+    <div className="animate-fade-in responsive-page-pad">
 
       {/* Page Header */}
       <div className="page-header">
@@ -406,7 +406,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
       </div>
 
       {/* Stats Cards Dashboard Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div className="dashboard-kpi-grid" style={{ marginBottom: '24px' }}>
         {stats.map(s => (
           <div key={s.label} className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ width: '4px', height: '40px', borderRadius: '4px', background: s.color, flexShrink: 0 }} />
@@ -449,7 +449,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
 
       {/* SUB TAB: TRUCKS */}
       {activeSubTab === 'trucks' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Add Truck Form */}
           <div className="glass-panel" style={{ padding: '22px' }}>
@@ -535,7 +535,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                 <button 
                   type="button"
                   onClick={() => setTruckComplianceOpen(!truckComplianceOpen)}
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: 'none', color: '#fff', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--radius-sm)' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Shield size={14} className="text-brand" /> Legal Documents & Certificates</span>
                   {truckComplianceOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -593,7 +593,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                 <button 
                   type="button"
                   onClick={() => setTruckTelemetryOpen(!truckTelemetryOpen)}
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: 'none', color: '#fff', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--radius-sm)' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Activity size={14} className="text-brand" /> Telemetry & Operations</span>
                   {truckTelemetryOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -645,7 +645,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
               <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>Active Fleet Status</h3>
               <span className="badge badge-brand" style={{ marginLeft: 'auto' }}>{trucks.length} vehicles</span>
             </div>
-            <div style={{ overflowX: 'auto', width: '100%', marginBottom: '6px' }}>
+            <div className="table-responsive" style={{ marginBottom: '6px' }}>
               <table className="table-premium">
                 <thead>
                   <tr>
@@ -758,7 +758,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                                 setEditRoadTaxDocUrl(truck.roadTaxDocUrl || '');
                               }}
                               className="btn-ghost"
-                              style={{ padding: '4px 6px', fontSize: '0.7rem', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', background: 'hsla(35, 95%, 55%, 0.1)', border: '1px solid hsla(35, 95%, 55%, 0.2)', borderRadius: '4px' }}
+                              style={{ padding: '4px 6px', fontSize: '0.7rem', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', background: 'hsla(205, 90%, 55%, 0.1)', border: '1px solid hsla(205, 90%, 55%, 0.2)', borderRadius: '4px' }}
                             >
                               <Edit size={11} style={{ color: 'var(--brand)' }} /> Edit Info
                             </button>
@@ -793,7 +793,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
 
       {/* SUB TAB: DRIVERS */}
       {activeSubTab === 'drivers' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Add Driver Form */}
           <div className="glass-panel" style={{ padding: '22px' }}>
@@ -826,7 +826,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                 <button 
                   type="button"
                   onClick={() => setDriverKycOpen(!driverKycOpen)}
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: 'none', color: '#fff', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--radius-sm)' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Shield size={14} className="text-brand" /> Personal KYC & Emergency Details</span>
                   {driverKycOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -896,7 +896,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                 <button 
                   type="button"
                   onClick={() => setDriverFinOpen(!driverFinOpen)}
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: 'none', color: '#fff', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--radius-sm)' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Wrench size={14} className="text-brand" /> Bank Account & Payouts</span>
                   {driverFinOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -924,7 +924,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                 <button 
                   type="button"
                   onClick={() => setDriverOpsOpen(!driverOpsOpen)}
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: 'none', color: '#fff', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--radius-sm)' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Activity size={14} className="text-brand" /> Experience & Preferences</span>
                   {driverOpsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -962,7 +962,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
               <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>Driver Directory</h3>
               <span className="badge badge-brand" style={{ marginLeft: 'auto' }}>{drivers.length} drivers</span>
             </div>
-            <div style={{ overflowX: 'auto', width: '100%', marginBottom: '6px' }}>
+            <div className="table-responsive" style={{ marginBottom: '6px' }}>
               <table className="table-premium">
                 <thead>
                   <tr>
@@ -1053,7 +1053,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                                 setEditLicenceDocUrl(d.licenceDocUrl || '');
                               }}
                               className="btn-ghost"
-                              style={{ padding: '4px 6px', fontSize: '0.7rem', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', background: 'hsla(35, 95%, 55%, 0.1)', border: '1px solid hsla(35, 95%, 55%, 0.2)', borderRadius: '4px' }}
+                              style={{ padding: '4px 6px', fontSize: '0.7rem', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', background: 'hsla(205, 90%, 55%, 0.1)', border: '1px solid hsla(205, 90%, 55%, 0.2)', borderRadius: '4px' }}
                             >
                               <Edit size={11} style={{ color: 'var(--brand)' }} /> Edit Info
                             </button>
@@ -1086,7 +1086,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
 
       {/* SUB TAB: MAINTENANCE LOGS */}
       {activeSubTab === 'maintenance' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.7fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Log Maintenance Form */}
           <div className="glass-panel" style={{ padding: '22px' }}>
@@ -1139,7 +1139,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
               <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>Historical Servicing Ledger</h3>
               <span className="badge badge-brand" style={{ marginLeft: 'auto' }}>{maintenanceLogs.length} Records</span>
             </div>
-            <div style={{ overflowX: 'auto', width: '100%' }}>
+            <div className="table-responsive">
               <table className="table-premium">
                 <thead>
                   <tr>
@@ -1394,10 +1394,10 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
         }}>
           <div className="glass-panel animate-scale-up" style={{
             width: '100%', maxWidth: '520px',
-            background: '#0a101d', border: '1.5px solid var(--brand)',
+            background: 'var(--bg-card)', border: '1.5px solid var(--brand)',
             padding: '24px', borderRadius: '16px',
             display: 'flex', flexDirection: 'column', gap: '16px',
-            boxShadow: '0 25px 50px rgba(0,240,255,0.15)', color: '#ffffff'
+            boxShadow: '0 25px 50px rgba(0,240,255,0.15)', color: 'var(--text-primary)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand-light)' }}>
@@ -1413,7 +1413,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
             </div>
 
             <div style={{ 
-              background: '#070b14', 
+              background: 'var(--bg-void)', 
               borderRadius: '12px', 
               padding: '30px 20px', 
               textAlign: 'center',
@@ -1433,7 +1433,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                 印
               </div>
               <div>
-                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#ffffff' }}>{activeViewerDoc.title}</h4>
+                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{activeViewerDoc.title}</h4>
                 <span className="badge badge-success" style={{ display: 'inline-block', marginTop: '6px', fontSize: '0.65rem' }}>
                   ✓ verified compliance doc
                 </span>

@@ -426,7 +426,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
         </div>
       </div>
 
-      {/* Main GPS Tracking Dashboard */}
+      {/* Main GPS Tracking Dashboard (Split Screen: Left Vehicle List, Center Map, Right Telemetry HUD) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '320px 1fr 340px',
@@ -520,9 +520,11 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
 
         {/* CENTER COLUMN: Interactive GPS Map & Route Replay Bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {/* Leaflet Map Box */}
           <div className="card" style={{ flex: 1, padding: '4px', position: 'relative', overflow: 'hidden', minHeight: '400px' }}>
             <div ref={mapContainerRef} style={{ width: '100%', height: '100%', borderRadius: '6px' }} />
 
+            {/* Floating Map Legend Overlay */}
             <div style={{
               position: 'absolute',
               top: '12px',
@@ -556,7 +558,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
             </div>
           </div>
 
-          {/* Route Playback */}
+          {/* Route Playback & Breadcrumb Replay Console */}
           <div className="card" style={{ padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <button
@@ -577,6 +579,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
               </button>
             </div>
 
+            {/* Playback Slider */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
                 <span>🚩 {activeVehicle.origin}</span>
@@ -593,6 +596,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
               />
             </div>
 
+            {/* Speed Multiplier */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               {[1, 2, 5].map(s => (
                 <button
@@ -608,7 +612,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Real-Time Telemetry HUD */}
+        {/* RIGHT COLUMN: Real-Time Telemetry HUD & Dispatch Control Actions */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1.25rem', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
             <div>
@@ -620,6 +624,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
             </span>
           </div>
 
+          {/* Active Trip Badge */}
           <div style={{ background: 'var(--bg-surface, rgba(255,255,255,0.03))', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Active Trip</div>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-primary)', marginTop: '2px' }}>{activeVehicle.tripId}</div>
@@ -630,7 +635,9 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
             </div>
           </div>
 
+          {/* Telemetry Gauge Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+            {/* Speed Gauge */}
             <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                 <Gauge size={14} color="#3b82f6" /> Current Speed
@@ -640,6 +647,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
               </div>
             </div>
 
+            {/* Fuel Level */}
             <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                 <Fuel size={14} color="#10b981" /> Fuel Level
@@ -649,6 +657,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
               </div>
             </div>
 
+            {/* Battery Level */}
             <div style={{ background: 'var(--bg-surface, rgba(255,255,255,0.03))', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                 <Battery size={14} /> Phone Battery
@@ -658,6 +667,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
               </div>
             </div>
 
+            {/* FASTag Balance */}
             <div style={{ background: 'var(--bg-surface, rgba(255,255,255,0.03))', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                 <Zap size={14} color="#f59e0b" /> FASTag Toll
@@ -668,6 +678,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
             </div>
           </div>
 
+          {/* Alert Callout if present */}
           {activeVehicle.alert && (
             <div style={{
               background: 'rgba(239, 68, 68, 0.1)',
@@ -686,6 +697,7 @@ export default function LiveFleetMap({ trips = [], trucks = [], drivers = [] }) 
             </div>
           )}
 
+          {/* Assigned Driver Profile Card */}
           <div style={{ background: 'var(--bg-surface, rgba(255,255,255,0.03))', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Assigned Driver</div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>

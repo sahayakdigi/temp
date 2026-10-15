@@ -18,7 +18,11 @@ router.get('/', async (req, res) => {
 
 // Create a new party
 router.post('/', async (req, res) => {
-  const { id, name, type, gstin, credit_limit, credit_days, address, email, password } = req.body;
+  const {
+    id, name, type, gstin, credit_limit, credit_days, address, phone, pan,
+    commission_rate, broker_type, parent_broker_id, sub_split_pct, tds_section, tds_rate,
+    email, password
+  } = req.body;
   if (!id || !name || !type) {
     return res.status(400).json({ error: 'ID, name, and type are required.' });
   }
@@ -28,10 +32,21 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
     
     const partyRes = await client.query(
-      `INSERT INTO parties (id, name, type, gstin, credit_limit, credit_days, address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO parties (
+        id, name, type, gstin, credit_limit, credit_days, address, phone, pan,
+        commission_rate, broker_type, parent_broker_id, sub_split_pct, tds_section, tds_rate
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
-      [id, name, type, gstin || null, credit_limit || null, credit_days || null, address || null]
+      [
+        id, name, type, gstin || null, credit_limit || null, credit_days || null, address || null, phone || null, pan || null,
+        commission_rate !== undefined && commission_rate !== null ? Number(commission_rate) : (type === 'broker' ? 5.0 : null),
+        broker_type || (type === 'broker' ? 'Booking Agent' : null),
+        parent_broker_id || null,
+        sub_split_pct !== undefined && sub_split_pct !== null ? Number(sub_split_pct) : 30.0,
+        tds_section || '194C (2%)',
+        tds_rate !== undefined && tds_rate !== null ? Number(tds_rate) : 2.0
+      ]
     );
 
     const newParty = partyRes.rows[0];
@@ -62,7 +77,10 @@ router.post('/', async (req, res) => {
 // Update a party
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, type, gstin, credit_limit, credit_days, address, phone } = req.body;
+  const {
+    name, type, gstin, credit_limit, credit_days, address, phone, pan,
+    commission_rate, broker_type, parent_broker_id, sub_split_pct, tds_section, tds_rate
+  } = req.body;
   try {
     const { rows } = await pool.query(
       `UPDATE parties 
@@ -71,9 +89,26 @@ router.put('/:id', async (req, res) => {
            gstin = $3,
            credit_limit = $4,
            credit_days = $5,
-           address = $6
-       WHERE id = $7 RETURNING *`,
-      [name, type, gstin, credit_limit || null, credit_days || null, address, id]
+           address = $6,
+           phone = COALESCE($7, phone),
+           pan = COALESCE($8, pan),
+           commission_rate = COALESCE($9, commission_rate),
+           broker_type = COALESCE($10, broker_type),
+           parent_broker_id = $11,
+           sub_split_pct = COALESCE($12, sub_split_pct),
+           tds_section = COALESCE($13, tds_section),
+           tds_rate = COALESCE($14, tds_rate)
+       WHERE id = $15 RETURNING *`,
+      [
+        name, type, gstin, credit_limit || null, credit_days || null, address,
+        phone || null, pan || null,
+        commission_rate !== undefined && commission_rate !== null ? Number(commission_rate) : null,
+        broker_type || null, parent_broker_id || null,
+        sub_split_pct !== undefined && sub_split_pct !== null ? Number(sub_split_pct) : null,
+        tds_section || null,
+        tds_rate !== undefined && tds_rate !== null ? Number(tds_rate) : null,
+        id
+      ]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Party not found' });

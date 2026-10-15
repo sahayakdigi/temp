@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Layers, Truck, CheckCircle, ShieldAlert, Sparkles, ArrowRight, Printer, X, FileText, Check, Navigation, ArrowDownToLine, RefreshCw } from 'lucide-react';
+import { Layers, Truck, CheckCircle, ShieldAlert, Sparkles, ArrowRight, Printer, X, FileText, Check, Navigation, ArrowDownToLine, RefreshCw, MessageSquare, Send, Copy, ExternalLink, CheckCheck, Users } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function HubManifest({ lrs, setLrs, manifests, setManifests, trucks, drivers, currentUser, branches }) {
+export default function HubManifest({ lrs, setLrs, manifests, setManifests, trucks, drivers, currentUser, branches, parties }) {
   // --- Hub Context State ---
   const initialHub = currentUser?.branch || 'DEL';
   const [currentHub, setCurrentHub] = useState(initialHub);
@@ -17,8 +17,27 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   const [destinationFilter, setDestinationFilter] = useState('All');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Hired / Ad-hoc truck states (ephemeral for this manifest)
+  const [truckSourceType, setTruckSourceType]   = useState('fleet'); // 'fleet' or 'hired'
+  const [hiredTruckNo, setHiredTruckNo]         = useState('');
+  const [hiredTruckPreset, setHiredTruckPreset] = useState('19Ft');
+  const [driverSourceType, setDriverSourceType] = useState('fleet'); // 'fleet' or 'custom'
+  const [customDriverName, setCustomDriverName] = useState('');
+  const [customDriverPhone, setCustomDriverPhone] = useState('');
+
+  const HIRED_PRESETS = {
+    '14Ft': { name: '14 Ft Open/Closed (4T · 500 CFT)', capacityKg: 4000, cft: 500, maxBoxes: 90, bodyType: 'Open Body', size: '14 Ft' },
+    '19Ft': { name: '19 Ft Container (10T · 900 CFT)', capacityKg: 10000, cft: 900, maxBoxes: 180, bodyType: 'Container', size: '19 Ft' },
+    '24Ft': { name: '24 Ft Container (15T · 1400 CFT)', capacityKg: 15000, cft: 1400, maxBoxes: 280, bodyType: 'Container', size: '24 Ft' },
+    '32Ft': { name: '32 Ft Multi-Axle (20T · 1900 CFT)', capacityKg: 20000, cft: 1900, maxBoxes: 380, bodyType: 'Container', size: '32 Ft MX' }
+  };
+
   // --- Runsheet Modal State ---
   const [previewManifest, setPreviewManifest] = useState(null);
+
+  // --- WhatsApp Automated Alerts Modal State ---
+  const [whatsappModalData, setWhatsappModalData] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
 
   // Auto-select defaults
   React.useEffect(() => {
@@ -75,11 +94,11 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   // --- Hub Stock Calculations ---
   // Any LR booked from anywhere (warehouse, friend's place, client site) ready for consolidation
   const localStock = lrs.filter(l => {
-    if (l.manifestId || l.status === 'Delivered' || l.status === 'Billed' || l.status === 'Dispatched') return false;
+    if (l.manifestId || l.manifest_id || l.status === 'Delivered' || l.status === 'Billed' || l.status === 'Dispatched') return false;
     
     if (currentHub === 'ALL') return true;
 
-    const loc = (l.currentLocation || l.bookingBranch || l.booking_branch || '').toUpperCase();
+    const loc = (l.currentLocation || l.current_location || l.bookingBranch || l.booking_branch || '').toUpperCase();
     const origHub = getHubId(l.origin);
     const branchHub = getHubId(l.bookingBranch || l.booking_branch);
 
@@ -118,6 +137,87 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
     return articles * cftBox;
   };
 
+  // --- Phone formatter & WhatsApp Generators ---
+  const formatPhoneForWhatsapp = (partyNameOrObj, fallbackPhone = '9876543210') => {
+    let raw = '';
+    if (typeof partyNameOrObj === 'object' && partyNameOrObj !== null) {
+      raw = partyNameOrObj.phone || partyNameOrObj.whatsappNo || partyNameOrObj.contactPhone || fallbackPhone;
+    } else {
+      const partyObj = (parties || []).find(p => p.name === partyNameOrObj || p.id === partyNameOrObj);
+      raw = partyObj?.phone || partyObj?.whatsappNo || partyObj?.contactPhone || fallbackPhone;
+    }
+    const digits = String(raw || '').replace(/\D/g, '');
+    if (digits.length === 10) return `91${digits}`;
+    if (digits.length === 12 && digits.startsWith('91')) return digits;
+    if (digits.length > 10) return `91${digits.slice(-10)}`;
+    return `91${fallbackPhone}`;
+  };
+
+  const handleCopyText = (key, text) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    }
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
+  const openWhatsappAlerts = (m) => {
+    if (!m) return;
+    const rawLrNos = m.lrNos || (typeof m.lr_nos === 'string' ? m.lr_nos.split(',').map(s => s.trim()) : m.lr_nos) || [];
+    const manifestLrs = lrs.filter(l => rawLrNos.includes(l.lrNo || l.lr_no) || l.manifestId === m.id || l.manifest_id === m.id);
+    const driverPhoneRaw = m.driverPhone || m.driver_phone || (drivers.find(d => d.name === (m.driverName || m.driver_name))?.phone) || '9876543210';
+    const driverPhone = formatPhoneForWhatsapp(null, driverPhoneRaw);
+    const vehicle = m.vehicleNo || m.vehicle_no || 'Truck';
+    const driverName = m.driverName || m.driver_name || 'Driver';
+    const origin = getHubName(getManifestOrigin(m)) || m.originHub || m.origin_hub || 'DEL';
+    const destination = getHubName(getManifestDest(m)) || m.destHub || m.dest_hub || 'BOM';
+    const totalWeight = Number(m.totalWeight || m.total_weight || 0);
+
+    const driverMsg = `🚚 *LOGISYNC TRIP ASSIGNMENT*\nHello ${driverName},\nYou are assigned to Line-Haul Trip *#${m.id}*.\n\n🚛 *Vehicle:* ${vehicle}\n🛣 *Route:* ${m.lane || `${origin} ➔ ${destination}`}\n📦 *Total Cargo:* ${manifestLrs.length} Consignments (${totalWeight.toLocaleString()} kg)\n📅 *Date:* ${m.date || new Date().toISOString().split('T')[0]}\n\n📲 *Driver Trip Portal:* https://logisync.app/driver\nPlease inspect cargo, verify seals, and start trip.`;
+
+    const lrAlerts = manifestLrs.map(lr => {
+      const lrId = lr.lrNo || lr.lr_no;
+      const cPhone = formatPhoneForWhatsapp(lr.consignor, '7799654708');
+      const dPhone = formatPhoneForWhatsapp(lr.consignee, '9876543210');
+      const wt = Number(lr.chargeWt || lr.charge_wt || 0);
+      const pkgs = lr.articles || 1;
+      const terms = lr.freightTerms || lr.freight_terms || 'To-Pay';
+      const lrDest = lr.destination || destination;
+
+      const consignorMsg = `📦 *DISPATCH ALERT — LOGISYNC*\nHello ${lr.consignor || 'Valued Shipper'},\nYour consignment *#${lrId}* has been loaded onto Line-Haul vehicle and DISPATCHED! 🚚\n\n🚛 *Vehicle:* ${vehicle}\n👨‍✈️ *Driver:* ${driverName} (${driverPhoneRaw})\n🛣 *Route:* ${lr.origin || origin} ➔ ${lrDest}\n📦 *Packages:* ${pkgs} Pkgs (${wt.toLocaleString()} kg)\n📄 *Manifest:* #${m.id}\n\n🔍 *Live Tracking:* https://logisync.app/track/${lrId}`;
+
+      const consigneeMsg = `🚚 *SHIPMENT EN ROUTE — LOGISYNC*\nHello ${lr.consignee || 'Valued Consignee'},\nShipment *#${lrId}* from *${lr.consignor}* has been dispatched on Line-Haul manifest #${m.id}! 🚚\n\n🚛 *Vehicle:* ${vehicle}\n👨‍✈️ *Driver Contact:* ${driverPhoneRaw}\n📍 *Destination Hub:* ${lrDest}\n💰 *Terms:* ${terms}\n\n🔍 *Track Shipment:* https://logisync.app/track/${lrId}`;
+
+      return {
+        lrId,
+        consignor: lr.consignor || 'Shipper',
+        consignorPhone: cPhone,
+        consignorMsg,
+        consignee: lr.consignee || 'Receiver',
+        consigneePhone: dPhone,
+        consigneeMsg,
+        articles: pkgs,
+        weight: wt,
+        destination: lrDest,
+        terms
+      };
+    });
+
+    setWhatsappModalData({
+      manifest: m,
+      vehicle,
+      driverName,
+      driverPhone,
+      driverPhoneRaw,
+      driverMsg,
+      origin,
+      destination,
+      lrCount: manifestLrs.length,
+      totalWeight,
+      lrAlerts
+    });
+  };
+
   // Handle Manifest Building (FR-4.2)
   const handleCreateManifest = (e) => {
     e.preventDefault();
@@ -132,8 +232,23 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
     }
     if (targetDest === 'All') targetDest = 'BOM';
 
-    const id = `MNF-2026-0${manifests.length + 1}`;
+    let nextNum = manifests.length + 1;
+    let id = `MNF-2026-${String(nextNum).padStart(3, '0')}`;
+    while (manifests.some(m => m.id === id)) {
+      nextNum++;
+      id = `MNF-2026-${String(nextNum).padStart(3, '0')}`;
+    }
+
+    if (truckSourceType === 'hired' && !hiredTruckNo.trim()) {
+      alert('Please enter the hired truck vehicle number before dispatching.');
+      return;
+    }
+
+    const effTruckNo = (truckSourceType === 'hired' ? hiredTruckNo.trim().toUpperCase() : selectedTruck) || trucks[0]?.regNo || 'MH-12-Q-4567';
     const driverObj = drivers.find(d => d.id === selectedDriver);
+    const effDriverName = driverSourceType === 'custom' ? (customDriverName.trim() || 'Hired Driver') : (driverObj?.name || 'Unknown');
+    const effDriverPhone = driverSourceType === 'custom' ? (customDriverPhone.trim() || '9876543210') : (driverObj?.phone || '9876543210');
+
     const totalWt   = lrsData.reduce((s, l) => s + Number(l.chargeWt || l.charge_wt || 0), 0);
     const totalFrt  = lrsData.reduce((s, l) => s + Number(l.freightAmt || l.freight_amt || 0), 0);
     const totalCft  = lrsData.reduce((s, l) => s + getLrCft(l), 0);
@@ -145,9 +260,9 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
       originHub: effectiveOrigin,
       destHub: targetDest,
       lane: `${getHubName(effectiveOrigin)} ➔ ${getHubName(targetDest)}`,
-      vehicleNo: selectedTruck,
-      driverName: driverObj?.name || 'Unknown',
-      driverPhone: driverObj?.phone || '9876543210',
+      vehicleNo: effTruckNo,
+      driverName: effDriverName,
+      driverPhone: effDriverPhone,
       status: 'Dispatched',
       date: new Date().toISOString().split('T')[0],
       lrCount: selectedLrs.length,
@@ -159,10 +274,12 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
 
     api.createManifest(newManifest)
       .then(saved => {
-        setManifests(prev => [saved, ...prev]);
-        updateMultipleLrs(selectedLrs, { manifestId: id, status: 'Manifested' });
-        setSuccessMsg(`✓ Manifest ${id} created and dispatched! Loaded ${selectedLrs.length} consignments (${totalWt.toLocaleString()} kg · ${totalCft} CFT) into truck ${selectedTruck}.`);
+        const resultManifest = saved || newManifest;
+        setManifests(prev => [resultManifest, ...prev]);
+        updateMultipleLrs(selectedLrs, { manifestId: id, status: 'Manifested', vehicleNo: effTruckNo });
+        setSuccessMsg(`✓ Manifest ${id} created and dispatched! Loaded ${selectedLrs.length} consignments (${totalWt.toLocaleString()} kg · ${totalCft} CFT) into truck ${effTruckNo}.`);
         setSelectedLrs([]);
+        openWhatsappAlerts(resultManifest);
         setTimeout(() => setSuccessMsg(''), 6000);
       })
       .catch(err => alert(`Failed to build manifest: ${err.message}`));
@@ -180,7 +297,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   };
 
   const handleOffload = async (manifest) => {
-    const manifestLrs = lrs.filter(l => manifest.lrNos?.includes(l.lrNo) || l.manifestId === manifest.id);
+    const manifestLrs = lrs.filter(l => manifest.lrNos?.includes(l.lrNo || l.lr_no) || l.manifestId === manifest.id || l.manifest_id === manifest.id);
     
     // Update manifest status
     try {
@@ -192,6 +309,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
 
     // Process each LR
     for (const lr of manifestLrs) {
+      const lrId = lr.lrNo || lr.lr_no;
       const isFinalDest = getHubId(lr.destination) === currentHub;
       const updates = {
         manifestId: null,
@@ -200,11 +318,11 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
       };
       
       // Local state and API update
-      setLrs(prev => prev.map(l => l.lrNo === lr.lrNo ? { ...l, ...updates } : l));
+      setLrs(prev => prev.map(l => (l.lrNo || l.lr_no) === lrId ? { ...l, ...updates } : l));
       try {
-        await api.updateLR(lr.lrNo, updates);
+        await api.updateLR(lrId, updates);
       } catch (err) {
-        console.error(`Failed to update LR ${lr.lrNo} on offload:`, err);
+        console.error(`Failed to update LR ${lrId} on offload:`, err);
       }
     }
 
@@ -219,11 +337,20 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   const currentBoxes    = selectedData.reduce((s, l) => s + Number(l.articles || 0), 0);
   const currentCft      = selectedData.reduce((s, l) => s + (Number(l.articles || 0) * 5), 0); // 5 CFT per box
 
-  const activeTruckObj  = trucks.find(t => t.regNo === selectedTruck);
-  const truckLimit      = activeTruckObj?.capacityKg || 20000;
-  const truckMaxBoxes   = activeTruckObj?.maxBoxes || 180;
+  const effTruckNo = (truckSourceType === 'hired' ? hiredTruckNo.trim().toUpperCase() : selectedTruck) || trucks[0]?.regNo || 'MH-12-Q-4567';
+
+  const activeTruckObj = truckSourceType === 'hired'
+    ? {
+        regNo: effTruckNo || 'Ad-Hoc Truck',
+        ownership: 'Hired / Market',
+        ...(HIRED_PRESETS[hiredTruckPreset] || HIRED_PRESETS['19Ft'])
+      }
+    : (trucks.find(t => (t.regNo || t.reg_no) === selectedTruck) || trucks[0]);
+
+  const truckLimit      = activeTruckObj?.capacityKg || activeTruckObj?.capacity_kg || 20000;
+  const truckMaxBoxes   = activeTruckObj?.maxBoxes || activeTruckObj?.max_boxes || 180;
   const truckCft        = activeTruckObj?.cft || 900;
-  const truckBodyType   = activeTruckObj?.bodyType || 'Container';
+  const truckBodyType   = activeTruckObj?.bodyType || activeTruckObj?.body_type || 'Container';
   const truckSize       = activeTruckObj?.size || '19 Ft';
 
   // Extract numeric truck feet length (e.g. "14 Ft" -> 14, "24 Ft" -> 24, "32 Ft MX" -> 32)
@@ -242,8 +369,8 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   // Group selected LRs by origin warehouse
   const originLoads = {};
   selectedData.forEach(lr => {
-    const origin = lr.origin || lr.bookingBranch || 'Unknown';
-    originLoads[origin] = (originLoads[origin] || 0) + lr.articles;
+    const origin = lr.origin || lr.bookingBranch || lr.booking_branch || 'Unknown';
+    originLoads[origin] = (originLoads[origin] || 0) + Number(lr.articles || 0);
   });
 
   const originSegments = Object.entries(originLoads).map(([name, boxes]) => {
@@ -252,12 +379,12 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   });
 
   const ORIGIN_COLORS = [
-    'hsl(210, 90%, 62%)',  // Blue/Cyan
-    'hsl(152, 72%, 48%)',  // Green/Emerald
-    'hsl(35, 95%, 55%)',   // Saffron/Orange
-    'hsl(262, 75%, 68%)',  // Violet
-    'hsl(188, 80%, 58%)',  // Cyan
-    'hsl(328, 80%, 55%)'   // Pink
+    'hsl(205, 95%, 60%)',  // Sky Blue
+    'hsl(152, 72%, 48%)',  // Emerald Green
+    'hsl(218, 92%, 58%)',  // Ocean Cobalt
+    'hsl(240, 75%, 68%)',  // Indigo Violet
+    'hsl(188, 85%, 52%)',  // Electric Cyan
+    'hsl(198, 95%, 45%)'   // Deep Sky Blue
   ];
 
   const getOriginColor = (name, index) => {
@@ -395,7 +522,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px' }}>
+    <div className="animate-fade-in responsive-page-pad">
       
       {/* PAGE HEADER */}
       <div className="page-header" style={{ marginBottom: '20px' }}>
@@ -428,7 +555,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
       )}
 
       {/* OPERATIONAL NAVIGATION TABS */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-default)', marginBottom: '24px', gap: '8px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid var(--border-default)', marginBottom: '24px', gap: '8px' }}>
         <button 
           onClick={() => setActiveTab('pending')}
           className={`toggle-btn ${activeTab === 'pending' ? 'active' : ''}`}
@@ -457,7 +584,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
 
       {/* TAB 1: PENDING OUTBOUND STOCK & MANIFEST BUILDER */}
       {activeTab === 'pending' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Left Panel: Hub Stock Register */}
           <div className="glass-panel" style={{ padding: '22px' }}>
@@ -495,21 +622,22 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {filteredLrs.map(lr => {
-                  const sel = selectedLrs.includes(lr.lrNo);
+                  const lrId = lr.lrNo || lr.lr_no;
+                  const sel = selectedLrs.includes(lrId);
                   return (
-                    <div key={lr.lrNo} onClick={() => toggleLr(lr.lrNo)}
+                    <div key={lrId} onClick={() => toggleLr(lrId)}
                       style={{
                         padding: '14px 16px',
                         borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${sel ? 'hsla(35, 95%, 55%, 0.5)' : 'var(--border-subtle)'}`,
-                        background: sel ? 'hsla(35, 95%, 55%, 0.08)' : 'hsla(222, 22%, 12%, 0.5)',
+                        border: `1px solid ${sel ? 'hsla(205, 90%, 55%, 0.5)' : 'var(--border-subtle)'}`,
+                        background: sel ? 'hsla(205, 90%, 55%, 0.08)' : 'hsla(222, 22%, 12%, 0.5)',
                         cursor: 'pointer',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         transition: 'var(--t-base)',
                       }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: '700', color: sel ? 'var(--brand-light)' : 'var(--text-primary)', fontFamily: 'var(--font-display)', fontSize: '0.9rem' }}>{lr.lrNo}</span>
+                          <span style={{ fontWeight: '700', color: sel ? 'var(--brand-light)' : 'var(--text-primary)', fontFamily: 'var(--font-display)', fontSize: '0.9rem' }}>{lrId}</span>
                           <span className={`badge ${lr.freightTerms === 'To-Pay' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.62rem' }}>{lr.freightTerms}</span>
                           {lr.status === 'Crossing' && (
                             <span className="badge badge-brand animate-pulse" style={{ fontSize: '0.62rem', background: 'var(--accent-violet-glow)', color: 'var(--accent-violet)', border: '1px solid var(--accent-violet)' }}>Transshipment</span>
@@ -519,12 +647,12 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
                           {lr.consignor} <ArrowRight size={10} style={{ verticalAlign: 'middle' }} /> {lr.consignee}
                         </p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Dest: {lr.destination} · Mark: {lr.privateMark}
+                          Dest: {lr.destination} · Mark: {lr.privateMark || lr.private_mark}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <p style={{ fontWeight: '700', fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{lr.chargeWt?.toLocaleString()} kg</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{lr.articles} Pkgs ({getLrCft(lr)} CFT · {lr.boxSizeType || 'Std'})</p>
+                        <p style={{ fontWeight: '700', fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{(Number(lr.chargeWt || lr.charge_wt || 0)).toLocaleString()} kg</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{lr.articles} Pkgs ({getLrCft(lr)} CFT · {lr.boxSizeType || lr.box_size_type || 'Std'})</p>
                       </div>
                     </div>
                   );
@@ -547,7 +675,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
               {/* Selected LRs chip pool */}
               <div>
                 <label className="label-premium">Selected Cargo LRs ({selectedLrs.length})</label>
-                <div style={{ padding: '12px', background: 'hsla(222, 24%, 10%, 0.6)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', minHeight: '56px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignContent: 'flex-start' }}>
+                <div style={{ padding: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', minHeight: '56px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignContent: 'flex-start' }}>
                   {selectedLrs.length === 0 ? (
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', alignSelf: 'center' }}>← Select LRs from the left stock panel…</span>
                   ) : selectedLrs.map(lrNo => (
@@ -562,16 +690,95 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div>
-                  <label className="label-premium">Line-Haul Truck</label>
-                  <select className="input-premium" value={selectedTruck} onChange={e => setSelectedTruck(e.target.value)}>
-                    {trucks.map(t => <option key={t.regNo} value={t.regNo}>{t.regNo} ({t.capacityKg?.toLocaleString()} kg · {t.cft || 900} CFT)</option>)}
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label className="label-premium" style={{ marginBottom: 0 }}>Line-Haul Truck</label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        className={`toggle-btn ${truckSourceType === 'fleet' ? 'active' : ''}`}
+                        style={{ padding: '2px 8px', fontSize: '0.68rem' }}
+                        onClick={() => setTruckSourceType('fleet')}
+                      >
+                        Fleet
+                      </button>
+                      <button
+                        type="button"
+                        className={`toggle-btn ${truckSourceType === 'hired' ? 'active' : ''}`}
+                        style={{ padding: '2px 8px', fontSize: '0.68rem', borderColor: truckSourceType === 'hired' ? 'var(--brand)' : undefined }}
+                        onClick={() => setTruckSourceType('hired')}
+                      >
+                        + Hired / New Truck
+                      </button>
+                    </div>
+                  </div>
+
+                  {truckSourceType === 'fleet' ? (
+                    <select className="input-premium" value={selectedTruck} onChange={e => setSelectedTruck(e.target.value)}>
+                      {trucks.map(t => <option key={t.regNo || t.reg_no} value={t.regNo || t.reg_no}>{(t.regNo || t.reg_no)} ({(Number(t.capacityKg || t.capacity_kg || 0)).toLocaleString()} kg · {t.cft || 900} CFT)</option>)}
+                    </select>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <input
+                        type="text"
+                        className="input-premium"
+                        placeholder="Vehicle No (e.g. DL-01-AB-9988)"
+                        value={hiredTruckNo}
+                        onChange={e => setHiredTruckNo(e.target.value.toUpperCase())}
+                        style={{ fontFamily: 'monospace', letterSpacing: '0.05em', fontWeight: '700' }}
+                        required={truckSourceType === 'hired'}
+                      />
+                      <select
+                        className="input-premium"
+                        style={{ fontSize: '0.74rem', padding: '5px 8px' }}
+                        value={hiredTruckPreset}
+                        onChange={e => setHiredTruckPreset(e.target.value)}
+                      >
+                        {Object.entries(HIRED_PRESETS).map(([key, val]) => (
+                          <option key={key} value={key}>{val.name}</option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        ⚡ Ad-hoc line-haul truck (not saved to permanent fleet master)
+                      </span>
+                    </div>
+                  )}
                 </div>
+
                 <div>
-                  <label className="label-premium">Assign Driver</label>
-                  <select className="input-premium" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
-                    {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label className="label-premium" style={{ marginBottom: 0 }}>Assign Driver</label>
+                    <button
+                      type="button"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--brand-light)', fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => setDriverSourceType(prev => prev === 'fleet' ? 'custom' : 'fleet')}
+                    >
+                      {driverSourceType === 'fleet' ? '+ Hired Driver' : 'Pick Fleet Driver'}
+                    </button>
+                  </div>
+                  {driverSourceType === 'fleet' ? (
+                    <select className="input-premium" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
+                      {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <input
+                        type="text"
+                        className="input-premium"
+                        placeholder="Driver Name"
+                        value={customDriverName}
+                        onChange={e => setCustomDriverName(e.target.value)}
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                      <input
+                        type="tel"
+                        className="input-premium"
+                        placeholder="Mobile (10 digits)"
+                        value={customDriverPhone}
+                        onChange={e => setCustomDriverPhone(e.target.value)}
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -584,7 +791,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
               )}
 
               {/* Capacity Gauge Panel */}
-              <div style={{ background: 'hsla(222, 24%, 10%, 0.7)', padding: '16px', borderRadius: 'var(--radius-md)', border: `1px solid ${isOverloaded ? 'hsla(4, 86%, 58%, 0.3)' : 'var(--border-subtle)'}`, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', border: `1px solid ${isOverloaded ? 'hsla(4, 86%, 58%, 0.3)' : 'var(--border-subtle)'}`, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--brand-light)', fontWeight: '600' }}>
                     {truckBodyType} · {truckSize}
@@ -719,12 +926,12 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>Dispatch trucks from other nodes to see them here.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
               {incomingManifests.map(m => {
                 const isArrived = m.status === 'Arrived';
                 const isTransit = m.status === 'InTransit';
                 return (
-                  <div key={m.id} className="glass-panel" style={{ padding: '16px', background: 'hsla(222, 22%, 12%, 0.65)', border: isArrived ? '1px solid var(--accent-success)' : '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div key={m.id} className="glass-panel" style={{ padding: '16px', background: 'var(--bg-elevated)', border: isArrived ? '1px solid var(--accent-success)' : '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span 
                         onClick={() => setPreviewManifest(m)}
@@ -777,6 +984,15 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
                       )}
                       
                       <button 
+                        onClick={() => openWhatsappAlerts(m)}
+                        className="toggle-btn" 
+                        title="WhatsApp Dispatch Alerts"
+                        style={{ padding: '6px 10px', fontSize: '0.78rem', color: '#25D366' }}
+                      >
+                        <MessageSquare size={13} />
+                      </button>
+                      
+                      <button 
                         onClick={() => setPreviewManifest(m)}
                         className="toggle-btn" 
                         style={{ padding: '6px 10px', fontSize: '0.78rem' }}
@@ -806,10 +1022,11 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>Build manifests in the Outbound Stock tab.</p>
             </div>
           ) : (
-            <table className="table-premium">
+            <div className="table-responsive">
+              <table className="table-premium">
               <thead>
                 <tr>
-                  {['Manifest ID', 'Lane Route', 'Vehicle Reg No', 'Driver Info', 'Cargo LRs', 'Total Weight', 'Est. Volume', 'Status', 'Print / View'].map(h => <th key={h}>{h}</th>)}
+                  {['Manifest ID', 'Lane Route', 'Vehicle Reg No', 'Driver Info', 'Cargo LRs', 'Total Weight', 'Est. Volume', 'Status', 'Actions'].map(h => <th key={h}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -845,19 +1062,29 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
                         </span>
                       </td>
                       <td>
-                        <button 
-                          onClick={() => setPreviewManifest(m)}
-                          className="btn-primary" 
-                          style={{ padding: '4px 10px', fontSize: '0.72rem', gap: '4px', background: 'hsla(222, 25%, 35%, 0.2)', border: '1px solid var(--border-default)' }}
-                        >
-                          <Printer size={12} /> Runsheet
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            onClick={() => openWhatsappAlerts(m)}
+                            className="btn-primary" 
+                            style={{ padding: '4px 8px', fontSize: '0.72rem', gap: '4px', background: 'hsla(142, 70%, 45%, 0.15)', color: '#25D366', border: '1px solid hsla(142, 70%, 45%, 0.3)' }}
+                          >
+                            <MessageSquare size={12} /> WhatsApp
+                          </button>
+                          <button 
+                            onClick={() => setPreviewManifest(m)}
+                            className="btn-secondary" 
+                            style={{ padding: '4px 8px', fontSize: '0.72rem', gap: '4px', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
+                          >
+                            <Printer size={12} /> Runsheet
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
           )}
         </div>
       )}
@@ -889,8 +1116,8 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
             {/* Sticky Header with Close & Print */}
             <div className="no-print" style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '16px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0',
-              position: 'sticky', top: 0, zIndex: 10
+              padding: '14px 18px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0',
+              position: 'sticky', top: 0, zIndex: 10, flexWrap: 'wrap', gap: '10px'
             }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileText size={18} style={{ color: '#2563eb' }} /> Runsheet Preview & Dispatch Manifest
@@ -898,9 +1125,17 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <button 
                   type="button"
+                  onClick={() => openWhatsappAlerts(previewManifest)}
+                  className="btn-primary" 
+                  style={{ background: '#25D366', color: '#fff', border: 'none', padding: '7px 14px', fontSize: '0.82rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '6px' }}
+                >
+                  <MessageSquare size={14} /> WhatsApp Alerts
+                </button>
+                <button 
+                  type="button"
                   onClick={() => window.print()}
                   className="btn-primary" 
-                  style={{ background: '#0f172a', color: '#fff', border: 'none', padding: '7px 16px', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '6px' }}
+                  style={{ background: 'var(--brand)', color: 'var(--text-inverse)', border: 'none', padding: '7px 16px', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '6px' }}
                 >
                   <Printer size={15} /> Print Runsheet
                 </button>
@@ -915,7 +1150,7 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
             </div>
 
             {/* Scrollable Printable Content Area */}
-            <div style={{ padding: '28px', overflowY: 'auto', flex: 1 }}>
+            <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
               <div id="manifest-printable-area" style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: 'monospace' }}>
                 {/* Runsheet Title */}
                 <div style={{ borderBottom: '3px double #111827', paddingBottom: '12px', textAlign: 'center' }}>
@@ -1026,6 +1261,236 @@ export default function HubManifest({ lrs, setLrs, manifests, setManifests, truc
                 type="button"
                 onClick={() => setPreviewManifest(null)}
                 style={{ background: '#334155', color: '#ffffff', border: 'none', padding: '6px 18px', fontSize: '0.85rem', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                Close Window
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WHATSAPP AUTOMATED DISPATCH ALERTS MODAL */}
+      {whatsappModalData && (
+        <div className="modal-backdrop" onClick={() => setWhatsappModalData(null)}>
+          <div 
+            className="glass-panel modal-card animate-scale-up" 
+            onClick={e => e.stopPropagation()} 
+            style={{ maxWidth: '840px', width: '95%', maxHeight: '90vh', padding: '24px', position: 'relative', overflowY: 'auto' }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: '#25D366', color: '#fff', padding: '10px', borderRadius: '50%', display: 'flex', boxShadow: '0 0 15px rgba(37, 211, 102, 0.4)' }}>
+                  <MessageSquare size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '800', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    WhatsApp Automated Dispatch Alerts
+                    <span className="badge badge-success" style={{ fontSize: '0.68rem', padding: '3px 8px' }}>Active Manifest</span>
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Line-Haul Manifest <strong>#{whatsappModalData.manifest.id}</strong> · {whatsappModalData.origin} ➔ {whatsappModalData.destination}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setWhatsappModalData(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Manifest Overview Bar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', background: 'var(--bg-elevated)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)', marginBottom: '18px', fontSize: '0.82rem' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Vehicle:</span>
+                <p style={{ fontWeight: '700' }}>{whatsappModalData.vehicle}</p>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Driver:</span>
+                <p style={{ fontWeight: '700' }}>{whatsappModalData.driverName} ({whatsappModalData.driverPhoneRaw})</p>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Total Cargo:</span>
+                <p style={{ fontWeight: '700' }}>{whatsappModalData.lrCount} LRs ({whatsappModalData.totalWeight.toLocaleString()} kg)</p>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Route Corridor:</span>
+                <p style={{ fontWeight: '700', color: 'var(--brand-light)' }}>{whatsappModalData.origin} ➔ {whatsappModalData.destination}</p>
+              </div>
+            </div>
+
+            {/* Broadcast All Alerts Quick Trigger */}
+            <div style={{ background: 'hsla(142, 70%, 45%, 0.1)', border: '1px solid hsla(142, 70%, 45%, 0.3)', padding: '14px 18px', borderRadius: 'var(--radius-md)', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#25D366', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={16} /> Broadcast Dispatch Alerts
+                </h4>
+                <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Click below to send instant WhatsApp tracking updates to Driver and all Consignors & Consignees.
+                </p>
+              </div>
+              <button 
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  window.open(`https://api.whatsapp.com/send?phone=${whatsappModalData.driverPhone}&text=${encodeURIComponent(whatsappModalData.driverMsg)}`, '_blank');
+                  if (whatsappModalData.lrAlerts && whatsappModalData.lrAlerts.length > 0) {
+                    setTimeout(() => {
+                      window.open(`https://api.whatsapp.com/send?phone=${whatsappModalData.lrAlerts[0].consignorPhone}&text=${encodeURIComponent(whatsappModalData.lrAlerts[0].consignorMsg)}`, '_blank');
+                    }, 400);
+                  }
+                }}
+                style={{ background: '#25D366', color: '#fff', fontSize: '0.82rem', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Send size={14} /> Send WhatsApp to Driver & Shippers
+              </button>
+            </div>
+
+            {/* 1. Driver WhatsApp Notification Card */}
+            <div style={{ marginBottom: '22px' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Truck size={15} style={{ color: 'var(--brand)' }} /> 1. Line-Haul Driver Assignment Alert
+              </h4>
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: '700', fontSize: '0.88rem' }}>{whatsappModalData.driverName}</span>
+                    <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>Assigned Driver</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>+{whatsappModalData.driverPhone}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      type="button"
+                      onClick={() => handleCopyText('driver', whatsappModalData.driverMsg)}
+                      className="btn-ghost"
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      {copiedKey === 'driver' ? <CheckCheck size={13} color="#25D366" /> : <Copy size={13} />}
+                      {copiedKey === 'driver' ? 'Copied!' : 'Copy Text'}
+                    </button>
+                    <a
+                      href={`https://api.whatsapp.com/send?phone=${whatsappModalData.driverPhone}&text=${encodeURIComponent(whatsappModalData.driverMsg)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary"
+                      style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '5px 14px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Send size={13} /> Send to Driver
+                    </a>
+                  </div>
+                </div>
+                <pre style={{ fontSize: '0.74rem', background: 'var(--bg-void)', padding: '10px 12px', borderRadius: '6px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                  {whatsappModalData.driverMsg}
+                </pre>
+              </div>
+            </div>
+
+            {/* 2. Consignment Party Alerts (Consignors & Consignees) */}
+            <div>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Users size={15} style={{ color: 'var(--brand)' }} /> 2. Consignment Party Alerts ({whatsappModalData.lrAlerts.length} LRs)
+              </h4>
+
+              {whatsappModalData.lrAlerts.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No individual LRs attached to this manifest.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {whatsappModalData.lrAlerts.map(lr => (
+                    <div key={lr.lrId} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '14px' }}>
+                      {/* LR Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--brand-light)', fontSize: '0.92rem' }}>{lr.lrId}</span>
+                          <span className={`badge ${lr.terms === 'To-Pay' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.62rem' }}>{lr.terms}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{lr.articles} Pkgs · {lr.weight.toLocaleString()} kg · Dest: {lr.destination}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                        {/* Consignor Alert */}
+                        <div style={{ background: 'hsla(142, 70%, 45%, 0.05)', border: '1px solid hsla(142, 70%, 45%, 0.2)', padding: '10px', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#25D366' }}>Consignor (Shipper)</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>+{lr.consignorPhone}</span>
+                            </div>
+                            <p style={{ fontWeight: '700', fontSize: '0.82rem', marginBottom: '6px' }}>{lr.consignor}</p>
+                            <pre style={{ fontSize: '0.7rem', background: 'var(--bg-void)', padding: '8px', borderRadius: '4px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', maxHeight: '110px', overflowY: 'auto' }}>
+                              {lr.consignorMsg}
+                            </pre>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                            <button 
+                              type="button"
+                              onClick={() => handleCopyText(`c-${lr.lrId}`, lr.consignorMsg)}
+                              className="btn-ghost"
+                              style={{ padding: '5px 8px', fontSize: '0.72rem', flex: 1, justifyContent: 'center' }}
+                            >
+                              {copiedKey === `c-${lr.lrId}` ? <CheckCheck size={12} color="#25D366" /> : <Copy size={12} />}
+                              {copiedKey === `c-${lr.lrId}` ? 'Copied' : 'Copy'}
+                            </button>
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=${lr.consignorPhone}&text=${encodeURIComponent(lr.consignorMsg)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-primary"
+                              style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '5px 10px', fontSize: '0.72rem', flex: 1.5, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Send size={12} /> WhatsApp Consignor
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* Consignee Alert */}
+                        <div style={{ background: 'hsla(142, 70%, 45%, 0.05)', border: '1px solid hsla(142, 70%, 45%, 0.2)', padding: '10px', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#25D366' }}>Consignee (Receiver)</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>+{lr.consigneePhone}</span>
+                            </div>
+                            <p style={{ fontWeight: '700', fontSize: '0.82rem', marginBottom: '6px' }}>{lr.consignee}</p>
+                            <pre style={{ fontSize: '0.7rem', background: 'var(--bg-void)', padding: '8px', borderRadius: '4px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', maxHeight: '110px', overflowY: 'auto' }}>
+                              {lr.consigneeMsg}
+                            </pre>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                            <button 
+                              type="button"
+                              onClick={() => handleCopyText(`d-${lr.lrId}`, lr.consigneeMsg)}
+                              className="btn-ghost"
+                              style={{ padding: '5px 8px', fontSize: '0.72rem', flex: 1, justifyContent: 'center' }}
+                            >
+                              {copiedKey === `d-${lr.lrId}` ? <CheckCheck size={12} color="#25D366" /> : <Copy size={12} />}
+                              {copiedKey === `d-${lr.lrId}` ? 'Copied' : 'Copy'}
+                            </button>
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=${lr.consigneePhone}&text=${encodeURIComponent(lr.consigneeMsg)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-primary"
+                              style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '5px 10px', fontSize: '0.72rem', flex: 1.5, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Send size={12} /> WhatsApp Consignee
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '22px', borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
+              <button 
+                type="button"
+                className="btn-ghost"
+                onClick={() => setWhatsappModalData(null)}
+                style={{ padding: '8px 20px', fontSize: '0.84rem' }}
               >
                 Close Window
               </button>

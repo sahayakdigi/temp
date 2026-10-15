@@ -103,7 +103,7 @@ export default function Enquiries({ showToast }) {
               padding: '8px 16px',
               fontSize: '0.78rem',
               color: 'var(--accent-warning)',
-              border: '1px solid hsla(35, 95%, 55%, 0.2)',
+              border: '1px solid hsla(205, 90%, 55%, 0.2)',
               background: 'var(--brand-glow)',
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer'
@@ -370,7 +370,7 @@ export default function Enquiries({ showToast }) {
                         borderRadius: '10px', 
                         background: 'var(--accent-warning-glow)', 
                         color: 'var(--accent-warning)',
-                        border: '1px solid hsla(35, 95%, 55%, 0.2)'
+                        border: '1px solid hsla(205, 90%, 55%, 0.2)'
                       }}>
                         Proposed Target: {extractProposedRate(selectedEnquiry.message)}
                       </span>
@@ -384,7 +384,7 @@ export default function Enquiries({ showToast }) {
 
                 {/* Respond & Action Panel */}
                 {selectedEnquiry.status !== 'Closed' && (
-                  <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--border-glow)', background: 'hsla(35,95%,55%,0.02)' }}>
+                  <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--border-glow)', background: 'hsla(205, 90%, 55%,0.02)' }}>
                     <h4 style={{ fontSize: '0.82rem', fontWeight: '700', margin: '0 0 12px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Send size={13} style={{ color: 'var(--brand-light)' }} /> Send Quote / Proposal Response
                     </h4>

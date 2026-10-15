@@ -48,12 +48,28 @@ router.get('/', async (req, res) => {
 // Create a manifest
 router.post('/', async (req, res) => {
   const {
-    id, lane, vehicle_no, driver_name, driver_phone, status, date,
-    lr_count, total_weight, total_freight, total_cft, manifest_pdf,
-    origin_hub, dest_hub, lr_nos
+    id, lane, vehicle_no, vehicleNo, driver_name, driverName, driver_phone, driverPhone,
+    status, date, lr_count, lrCount, total_weight, totalWeight, total_freight, totalFreight,
+    total_cft, totalCft, manifest_pdf, manifestPdf, origin_hub, originHub, dest_hub, destHub,
+    lr_nos, lrNos
   } = req.body;
 
-  const lrNosStr = Array.isArray(lr_nos) ? JSON.stringify(lr_nos) : (lr_nos || '[]');
+  const effId = id || `MNF-2026-${Date.now()}`;
+  const effLane = lane || '';
+  const effVehicleNo = vehicle_no || vehicleNo || '';
+  const effDriverName = driver_name || driverName || '';
+  const effDriverPhone = driver_phone || driverPhone || '';
+  const effStatus = status || 'Dispatched';
+  const effDate = date || new Date().toISOString().split('T')[0];
+  const effLrCount = lr_count !== undefined ? Number(lr_count) : (lrCount !== undefined ? Number(lrCount) : 0);
+  const effTotalWeight = total_weight !== undefined ? Number(total_weight) : (totalWeight !== undefined ? Number(totalWeight) : 0);
+  const effTotalFreight = total_freight !== undefined ? Number(total_freight) : (totalFreight !== undefined ? Number(totalFreight) : 0);
+  const effTotalCft = total_cft !== undefined ? Number(total_cft) : (totalCft !== undefined ? Number(totalCft) : 0);
+  const effManifestPdf = manifest_pdf || manifestPdf || '';
+  const effOriginHub = origin_hub || originHub || 'DEL';
+  const effDestHub = dest_hub || destHub || 'BOM';
+  const rawLrNos = lr_nos !== undefined ? lr_nos : lrNos;
+  const lrNosStr = Array.isArray(rawLrNos) ? JSON.stringify(rawLrNos) : (rawLrNos || '[]');
 
   try {
     const { rows } = await pool.query(
@@ -64,9 +80,9 @@ router.post('/', async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
-        id, lane, vehicle_no, driver_name, driver_phone || '', status || 'Dispatched', date,
-        lr_count || 0, total_weight || 0, total_freight || 0, total_cft || 0, manifest_pdf || '',
-        origin_hub || 'DEL', dest_hub || 'BOM', lrNosStr
+        effId, effLane, effVehicleNo, effDriverName, effDriverPhone, effStatus, effDate,
+        effLrCount, effTotalWeight, effTotalFreight, effTotalCft, effManifestPdf,
+        effOriginHub, effDestHub, lrNosStr
       ]
     );
     res.status(201).json(rows[0]);
@@ -79,14 +95,34 @@ router.post('/', async (req, res) => {
 // Update a manifest
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const updates = { ...req.body };
+  const body = req.body;
 
-  if (updates.lr_nos && Array.isArray(updates.lr_nos)) {
-    updates.lr_nos = JSON.stringify(updates.lr_nos);
+  if (Object.keys(body).length === 0) {
+    return res.status(400).json({ error: 'No update parameters provided' });
   }
 
-  if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ error: 'No update parameters provided' });
+  const keyMap = {
+    vehicleNo: 'vehicle_no',
+    driverName: 'driver_name',
+    driverPhone: 'driver_phone',
+    originHub: 'origin_hub',
+    destHub: 'dest_hub',
+    lrCount: 'lr_count',
+    totalWeight: 'total_weight',
+    totalFreight: 'total_freight',
+    totalCft: 'total_cft',
+    manifestPdf: 'manifest_pdf',
+    lrNos: 'lr_nos'
+  };
+
+  const updates = {};
+  for (const [key, val] of Object.entries(body)) {
+    const dbKey = keyMap[key] || key;
+    if (dbKey === 'lr_nos' && Array.isArray(val)) {
+      updates[dbKey] = JSON.stringify(val);
+    } else {
+      updates[dbKey] = val;
+    }
   }
 
   const fields = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`).join(', ');

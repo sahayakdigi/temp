@@ -5,8 +5,8 @@ import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginPage({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@temp.in');
+  const [password, setPassword] = useState('admin123');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -97,25 +97,10 @@ export default function LoginPage({ onLogin }) {
   ];
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      background: 'var(--bg-void)',
-    }}>
+    <div className="login-container">
 
       {/* ── LEFT PANEL — Branding ── */}
-      <div style={{
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '60px 56px',
-        background: 'linear-gradient(145deg, hsl(224, 32%, 6%) 0%, hsl(224, 28%, 9%) 100%)',
-        borderRight: '1px solid var(--border-subtle)',
-        overflow: 'hidden',
-      }}>
+      <div className="login-panel-left">
         {/* Ambient glows */}
         <div style={{ position: 'absolute', top: '-80px', left: '-80px', width: '320px', height: '320px', background: 'radial-gradient(circle, hsla(35,95%,55%,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: '-60px', right: '-60px', width: '280px', height: '280px', background: 'radial-gradient(circle, hsla(210,90%,62%,0.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
@@ -161,7 +146,7 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           {/* Feature Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="login-features-grid">
             {features.map((f, i) => (
               <div key={i} style={{
                 padding: '16px',
@@ -182,16 +167,7 @@ export default function LoginPage({ onLogin }) {
       </div>
 
       {/* ── RIGHT PANEL — Login Form ── */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '60px 56px',
-        background: 'linear-gradient(160deg, hsl(224,28%,7%) 0%, hsl(224,26%,8%) 100%)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
+      <div className="login-panel-right">
         {/* Ambient top-right glow */}
         <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', background: 'radial-gradient(circle, hsla(35,95%,55%,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 

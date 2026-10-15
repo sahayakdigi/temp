@@ -413,7 +413,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="animate-fade-in responsive-page-pad" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Toast Notification Alert */}
       {toastMsg && (
@@ -439,7 +439,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header" style={{ marginBottom: 0 }}>
         <div>
           <h2 className="page-title">Unified Digital Ledger</h2>
           <p className="page-subtitle">Traceable net profitability rollup at LR, Trip, and Branch level</p>
@@ -473,9 +473,10 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
+        flexWrap: 'wrap',
         gap: '8px', 
         fontSize: '0.85rem', 
-        background: 'hsla(222, 22%, 12%, 0.6)', 
+        background: 'var(--bg-elevated)', 
         padding: '12px 18px', 
         borderRadius: 'var(--radius-md)', 
         border: '1px solid var(--border-subtle)',
@@ -560,7 +561,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: 'hsla(222, 22%, 12%, 0.5)',
+              background: 'var(--bg-elevated)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
@@ -578,7 +579,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
             onMouseLeave={e => {
               e.currentTarget.style.borderColor = 'var(--border-subtle)';
               e.currentTarget.style.color = 'var(--text-secondary)';
-              e.currentTarget.style.background = 'hsla(222, 22%, 12%, 0.5)';
+              e.currentTarget.style.background = 'var(--bg-elevated)';
             }}
           >
             <ArrowLeft size={14} /> 
@@ -593,7 +594,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
       )}
 
       {/* Dynamic Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+      <div className="dashboard-kpi-grid">
         <div className="glass-panel" style={{ padding: '18px 22px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'var(--accent-info)', opacity: 0.7 }} />
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
@@ -640,26 +641,26 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Secondary KPIs strip (Advanced Analytics) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-            <div className="glass-panel" style={{ padding: '12px 16px', background: 'hsla(222,22%,12%,0.2)' }}>
+          <div className="dashboard-kpi-grid">
+            <div className="glass-panel" style={{ padding: '12px 16px', background: 'var(--bg-elevated)' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', display: 'block', textTransform: 'uppercase' }}>Total Weight Moved</span>
               <span style={{ fontSize: '1.1rem', fontWeight: '700' }}>{(totalCompanyWeight / 1000).toFixed(1)} MT</span>
             </div>
-            <div className="glass-panel" style={{ padding: '12px 16px', background: 'hsla(222,22%,12%,0.2)' }}>
+            <div className="glass-panel" style={{ padding: '12px 16px', background: 'var(--bg-elevated)' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', display: 'block', textTransform: 'uppercase' }}>Total Run Distance</span>
               <span style={{ fontSize: '1.1rem', fontWeight: '700' }}>{totalCompanyDistance.toLocaleString()} km</span>
             </div>
-            <div className="glass-panel" style={{ padding: '12px 16px', background: 'hsla(222,22%,12%,0.2)' }}>
+            <div className="glass-panel" style={{ padding: '12px 16px', background: 'var(--bg-elevated)' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', display: 'block', textTransform: 'uppercase' }}>Avg Profit / Placement</span>
               <span style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-success)' }}>₹{avgProfitPerTrip.toLocaleString('en-IN')}</span>
             </div>
-            <div className="glass-panel" style={{ padding: '12px 16px', background: 'hsla(222,22%,12%,0.2)' }}>
+            <div className="glass-panel" style={{ padding: '12px 16px', background: 'var(--bg-elevated)' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', display: 'block', textTransform: 'uppercase' }}>Average Linehaul Cost</span>
               <span style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-danger)' }}>₹{Math.round(costPerKm)} / km</span>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
+          <div className="responsive-grid-split">
             {/* Left Side: Branch Rollup */}
             <div className="glass-panel" style={{ padding: '22px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -683,7 +684,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
                       className="glass-panel-interactive"
                       style={{
                         padding: '16px 20px',
-                        background: 'hsla(222,22%,12%,0.4)',
+                        background: 'var(--bg-elevated)',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--border-subtle)',
                         transition: 'var(--t-base)'
@@ -730,7 +731,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {laneStats.map(stat => (
-                    <div key={stat.lane} style={{ background: 'hsla(222,22%,12%,0.2)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                    <div key={stat.lane} style={{ background: 'var(--bg-elevated)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontWeight: '600', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <MapPin size={13} style={{ color: 'var(--brand)' }} /> {stat.lane}
@@ -802,7 +803,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
       {/* LEVEL 1: BRANCH VIEW                                     */}
       {/* ──────────────────────────────────────────────────────── */}
       {selectedBranchId && !selectedTripId && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Left Column: Trips & Manifests in Branch */}
           <div className="glass-panel" style={{ padding: '22px' }}>
@@ -890,7 +891,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
                     padding: '14px 16px',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-subtle)',
-                    background: 'hsla(222,22%,12%,0.4)'
+                    background: 'var(--bg-elevated)'
                   }}>
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -946,15 +947,15 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
               </p>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'hsla(222,22%,12%,0.4)', borderRadius: 'var(--radius-xs)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xs)' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>FTL Trips Active:</span>
                   <span style={{ fontWeight: '600' }}>{branchItems.filter(i => i.type === 'FTL').length}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'hsla(222,22%,12%,0.4)', borderRadius: 'var(--radius-xs)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xs)' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>PTL Manifests Running:</span>
                   <span style={{ fontWeight: '600' }}>{branchItems.filter(i => i.type === 'PTL').length}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'hsla(222,22%,12%,0.4)', borderRadius: 'var(--radius-xs)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xs)' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Unmanifested LRs:</span>
                   <span style={{ fontWeight: '600', color: branchStandalone.length > 0 ? 'var(--accent-warning)' : 'var(--text-primary)' }}>{branchStandalone.length}</span>
                 </div>
@@ -997,7 +998,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
       {/* LEVEL 2: TRIP / MANIFEST DETAIL VIEW                     */}
       {/* ──────────────────────────────────────────────────────── */}
       {selectedTripId && !selectedLrNo && selectedItem && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Left Column: Detailed P&L statement */}
           <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1028,7 +1029,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
               display: 'grid', 
               gridTemplateColumns: 'repeat(3, 1fr)', 
               gap: '10px', 
-              background: 'hsla(222,22%,12%,0.4)', 
+              background: 'var(--bg-elevated)', 
               padding: '12px 14px', 
               borderRadius: 'var(--radius-md)', 
               fontSize: '0.8rem' 
@@ -1142,7 +1143,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
               {/* Inline Add Expense Form */}
               {showAddExpense && (
                 <form onSubmit={handleAddExpenseSubmit} style={{ 
-                  background: 'hsla(222,22%,12%,0.8)', 
+                  background: 'var(--bg-elevated)', 
                   border: '1px solid var(--border-default)', 
                   borderRadius: 'var(--radius-md)', 
                   padding: '16px', 
@@ -1259,7 +1260,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
                     justifyContent: 'space-between', 
                     alignItems: 'center', 
                     padding: '12px 16px', 
-                    background: 'hsla(222, 22%, 12%, 0.6)', 
+                    background: 'var(--bg-elevated)', 
                     borderRadius: 'var(--radius-md)', 
                     border: '1px solid var(--border-subtle)', 
                     fontSize: '0.85rem' 
@@ -1338,7 +1339,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
                 {lrs.filter(l => l.lrNo === selectedItem.rawTrip.lorryReceiptNo || l.lrNo === 'LR-2026-001').map(lr => (
                   <div key={lr.lrNo} onClick={() => setSelectedLrNo(lr.lrNo)}
                     className="glass-panel-interactive"
-                    style={{ padding: '16px', background: 'hsla(222,22%,12%,0.4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                    style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--brand-light)' }}><GlossaryTooltip term="LR" glossary={GLOSSARY}>{lr.lrNo}</GlossaryTooltip></span>
                       <span className="badge badge-success">{lr.status}</span>
@@ -1376,7 +1377,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
                     return (
                       <div key={lr.lrNo} onClick={() => setSelectedLrNo(lr.lrNo)}
                         className="glass-panel-interactive"
-                        style={{ padding: '14px', background: 'hsla(222,22%,12%,0.4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        style={{ padding: '14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <span style={{ fontWeight: '700', fontSize: '0.88rem', color: 'var(--brand-light)' }}><GlossaryTooltip term="LR" glossary={GLOSSARY}>{lr.lrNo}</GlossaryTooltip></span>
                           <span className={`badge ${metrics.profit >= 0 ? 'badge-success' : 'badge-danger'}`}>
@@ -1423,7 +1424,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
       {/* LEVEL 3: LR (CONSIGNMENT) DETAIL VIEW                    */}
       {/* ──────────────────────────────────────────────────────── */}
       {selectedLrNo && selectedLr && lrMetrics && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: '24px', alignItems: 'start' }}>
+        <div className="responsive-grid-split">
           
           {/* Left Column: LR Profitability details */}
           <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1449,19 +1450,19 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
 
             {/* Consignment Metadata */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', fontSize: '0.85rem' }}>
-              <div style={{ background: 'hsla(222,22%,12%,0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase' }}>Consignor</span>
                 <span style={{ fontWeight: '600' }}>{selectedLr.consignor}</span>
               </div>
-              <div style={{ background: 'hsla(222,22%,12%,0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase' }}>Consignee</span>
                 <span style={{ fontWeight: '600' }}>{selectedLr.consignee}</span>
               </div>
-              <div style={{ background: 'hsla(222,22%,12%,0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase' }}>Origin ➔ Destination</span>
                 <span style={{ fontWeight: '600' }}>{selectedLr.origin} ➔ {selectedLr.destination}</span>
               </div>
-              <div style={{ background: 'hsla(222,22%,12%,0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase' }}>
                   <GlossaryTooltip term="CHARGEABLE_WEIGHT" glossary={GLOSSARY}>Chargeable Weight</GlossaryTooltip>
                 </span>
@@ -1557,7 +1558,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
             </div>
 
             {/* Document Details Block (e-way bill + ePOD Signature Mock) */}
-            <div style={{ background: 'hsla(222,22%,12%,0.5)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', textTransform: 'uppercase', display: 'block', marginBottom: '3px' }}>E-Way Bill Number</span>
                 <span style={{ fontSize: '0.88rem', fontWeight: '600', fontFamily: 'monospace', color: 'var(--brand-light)' }}>

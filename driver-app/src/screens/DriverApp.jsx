@@ -3,7 +3,8 @@ import { api } from '../services/api';
 import { 
   Smartphone, Wifi, WifiOff, Battery, Camera, Compass, Sparkles, 
   UploadCloud, User, Database, Power, AlertCircle, Bell,
-  Home, Truck, PenTool, Package, ShieldAlert, XCircle, ShieldCheck
+  Home, Truck, PenTool, Package, ShieldAlert, XCircle, ShieldCheck,
+  Sun, Moon
 } from 'lucide-react';
 
 export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, drivers = [] }) {
@@ -18,6 +19,32 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
   const [telemetryOpen, setTelemetryOpen] = useState(true); // Default open for developer visibility
   const [dbOpen, setDbOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(true);
+
+  // ── THEME STATE ──
+  const [theme, setTheme] = useState(localStorage.getItem('temp-theme') || 'dark');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('temp-theme') || 'dark';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (savedTheme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('temp-theme', nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    if (nextTheme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  };
 
   // ── ACCORDION EXPANSION STATE FOR DEVS ──────────────────────────────────────
   const [expandedLogs, setExpandedLogs] = useState({});
@@ -1081,7 +1108,25 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         </div>
 
         {/* ── SIMULATED TELEMETRY TOGGLES ── */}
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to Light (White) Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle Color Theme"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun size={14} style={{ color: 'var(--brand-light)' }} />
+                <span style={{ fontSize: '0.78rem', fontWeight: '600' }}>Light</span>
+              </>
+            ) : (
+              <>
+                <Moon size={14} style={{ color: 'var(--accent-info)' }} />
+                <span style={{ fontSize: '0.78rem', fontWeight: '600' }}>Dark</span>
+              </>
+            )}
+          </button>
           <button 
             className={`btn ${telemetryOpen ? 'btn-brand' : 'btn-secondary'}`}
             onClick={() => setTelemetryOpen(!telemetryOpen)}
@@ -1101,7 +1146,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '24px', alignItems: 'start', marginTop: '20px' }}>
+      <div className="driver-simulator-layout">
         
         {/* ── LEFT PANEL: OWNER APPROVAL HUB & METRICS ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1140,7 +1185,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       {/* Card Header */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                          <strong style={{ fontSize: '0.85rem', color: '#ffffff', display: 'block' }}>{request.title}</strong>
+                          <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)', display: 'block' }}>{request.title}</strong>
                           <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                             Driver: {request.driverName} | Trip: {request.tripId}
                           </span>
@@ -1156,7 +1201,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                           borderRadius: '6px',
                           padding: '8px 10px',
                           fontSize: '0.7rem',
-                          color: request.isFraudRisk ? '#fca5a5' : '#a7f3d0',
+                          color: request.isFraudRisk ? 'var(--accent-danger)' : 'var(--accent-success)',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '4px'
@@ -1186,7 +1231,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         <div style={{ flex: 1 }}>
                           {request.type === 'odoStart' || request.type === 'odoEnd' ? (
                             <div style={{
-                              background: '#070b14',
+                              background: 'var(--bg-void)',
                               borderRadius: '8px',
                               border: '1px solid rgba(0, 240, 255, 0.15)',
                               display: 'flex',
@@ -1196,33 +1241,34 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                               padding: '8px',
                               height: '90px'
                             }}>
-                              <span style={{ fontSize: '0.62rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '800' }}>Odometer reading</span>
-                              <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#00f0ff', letterSpacing: '1px', fontFamily: 'monospace', margin: '4px 0' }}>
+                              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '800' }}>Odometer reading</span>
+                              <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--brand)', letterSpacing: '1px', fontFamily: 'monospace', margin: '4px 0' }}>
                                 {request.odoValue?.toLocaleString()} km
                               </span>
-                              <div style={{ width: '60px', height: '2px', background: 'linear-gradient(90deg, transparent, #00f0ff, transparent)' }} />
+                              <div style={{ width: '60px', height: '2px', background: 'linear-gradient(90deg, transparent, var(--brand), transparent)' }} />
                             </div>
                           ) : request.type === 'expense' ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                               <div style={{
-                                background: '#ffffff',
+                                background: 'var(--bg-card)',
                                 borderRadius: '8px',
                                 padding: '10px',
-                                color: '#1e293b',
+                                color: 'var(--text-primary)',
                                 fontFamily: 'monospace',
                                 fontSize: '0.68rem',
                                 borderLeft: '4px solid #f59e0b',
-                                boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                                border: '1px solid var(--border-subtle)',
+                                boxShadow: 'var(--shadow-sm)'
                               }}>
-                                <div style={{ textAlign: 'center', borderBottom: '1px dashed #cbd5e1', paddingBottom: '4px', marginBottom: '4px' }}>
-                                  <strong style={{ fontSize: '0.7rem', color: '#0f172a' }}>RECEIPT DETAILS</strong>
-                                  <div style={{ fontSize: '0.55rem', color: '#64748b' }}>{request.merchant || 'IOCL Service Station'}</div>
+                                <div style={{ textAlign: 'center', borderBottom: '1px dashed var(--border-subtle)', paddingBottom: '4px', marginBottom: '4px' }}>
+                                  <strong style={{ fontSize: '0.7rem', color: 'var(--text-primary)' }}>RECEIPT DETAILS</strong>
+                                  <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>{request.merchant || 'IOCL Service Station'}</div>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                                   <span>TYPE:</span>
-                                  <strong style={{ color: '#0f172a' }}>{request.expenseType?.toUpperCase()}</strong>
+                                  <strong style={{ color: 'var(--text-primary)' }}>{request.expenseType?.toUpperCase()}</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: '4px', fontSize: '0.78rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-subtle)', paddingTop: '4px', fontSize: '0.78rem' }}>
                                   <strong>TOTAL:</strong>
                                   <strong style={{ color: '#d97706' }}>₹{request.amount?.toLocaleString()}</strong>
                                 </div>
@@ -1236,7 +1282,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   }}
                                   style={{
                                     height: '110px',
-                                    background: '#070b14',
+                                    background: 'var(--bg-void)',
                                     borderRadius: '8px',
                                     border: '1px solid rgba(245, 158, 11, 0.2)',
                                     overflow: 'hidden',
@@ -1253,9 +1299,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             </div>
                           ) : request.type === 'epod' ? (
                             <div style={{
-                              background: 'rgba(16, 185, 129, 0.05)',
+                              background: 'var(--bg-void)',
                               borderRadius: '8px',
-                              border: '1px solid rgba(16, 185, 129, 0.2)',
+                              border: '1px solid var(--border-subtle)',
                               padding: '8px',
                               display: 'flex',
                               flexDirection: 'column',
@@ -1263,8 +1309,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                               height: '95px'
                             }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem' }}>
-                                <span style={{ color: '#94a3b8' }}>Signer:</span>
-                                <strong style={{ color: '#ffffff' }}>{request.receiverName}</strong>
+                                <span style={{ color: 'var(--text-muted)' }}>Signer:</span>
+                                <strong style={{ color: 'var(--text-primary)' }}>{request.receiverName}</strong>
                               </div>
                               <div style={{ background: '#ffffff', borderRadius: '4px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                                 {request.signatureImg ? (
@@ -1279,39 +1325,39 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                               {request.extractedFields ? (
                                 <div style={{
-                                  background: '#070b14',
+                                  background: 'var(--bg-void)',
                                   borderRadius: '8px',
                                   padding: '8px 10px',
-                                  color: '#cbd5e1',
+                                  color: 'var(--text-secondary)',
                                   fontSize: '0.68rem',
-                                  borderLeft: '4px solid #00f0ff',
-                                  border: '1px solid rgba(0, 240, 255, 0.2)'
+                                  borderLeft: '4px solid var(--brand)',
+                                  border: '1px solid var(--border-subtle)'
                                 }}>
-                                  <div style={{ borderBottom: '1px dashed rgba(0,240,255,0.2)', paddingBottom: '4px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <strong style={{ color: '#00f0ff' }}>WAYBILL DETECTED</strong>
+                                  <div style={{ borderBottom: '1px dashed var(--border-subtle)', paddingBottom: '4px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                                    <strong style={{ color: 'var(--brand)' }}>WAYBILL DETECTED</strong>
                                     <span>LR: <strong>{request.extractedFields.lrNumber || 'Unknown'}</strong></span>
                                   </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    <div>Consignor: <strong style={{ color: '#ffffff' }}>{request.extractedFields.consignor || 'N/A'}</strong></div>
-                                    <div>Consignee: <strong style={{ color: '#ffffff' }}>{request.extractedFields.consignee || 'N/A'}</strong></div>
-                                    <div>Dest: <strong style={{ color: '#ffffff' }}>{request.extractedFields.destination || 'N/A'}</strong></div>
+                                    <div>Consignor: <strong style={{ color: 'var(--text-primary)' }}>{request.extractedFields.consignor || 'N/A'}</strong></div>
+                                    <div>Consignee: <strong style={{ color: 'var(--text-primary)' }}>{request.extractedFields.consignee || 'N/A'}</strong></div>
+                                    <div>Dest: <strong style={{ color: 'var(--text-primary)' }}>{request.extractedFields.destination || 'N/A'}</strong></div>
                                   </div>
                                 </div>
                               ) : (
                                 <div style={{
                                   height: '90px',
-                                  background: '#1e293b',
+                                  background: 'var(--bg-elevated)',
                                   borderRadius: '8px',
-                                  border: '1px solid rgba(0, 240, 255, 0.2)',
+                                  border: '1px solid var(--border-subtle)',
                                   position: 'relative',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   overflow: 'hidden'
                                 }}>
-                                  <div style={{ position: 'absolute', top: '5px', left: '5px', width: '20px', height: '25px', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '2px' }} />
+                                  <div style={{ position: 'absolute', top: '5px', left: '5px', width: '20px', height: '25px', border: '1px solid var(--border-subtle)', borderRadius: '2px' }} />
                                   <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '18px', height: '18px', borderRadius: '50%', border: '1.5px dashed #f43f5e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f43f5e', fontSize: '0.45rem', transform: 'rotate(-15deg)', fontWeight: 'bold' }}>STAMP</div>
-                                  <span style={{ fontSize: '0.65rem', color: '#cbd5e1', fontWeight: '700' }}>📄 WAYBILL_FILE.WebP</span>
+                                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: '700' }}>📄 WAYBILL_FILE.WebP</span>
                                 </div>
                               )}
                               {request.photoUrl && (
@@ -1322,7 +1368,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   }}
                                   style={{
                                     height: '80px',
-                                    background: '#070b14',
+                                    background: 'var(--bg-void)',
                                     borderRadius: '8px',
                                     border: '1px solid rgba(0, 240, 255, 0.2)',
                                     overflow: 'hidden',
@@ -1348,14 +1394,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             placeholder="e.g. Blurry photo"
                             value={rejectionReasons[request.id] || ''}
                             onChange={(e) => setRejectionReasons({ ...rejectionReasons, [request.id]: e.target.value })}
-                            style={{ padding: '6px 8px', background: '#070b14', border: '1px solid var(--border-default)', borderRadius: '6px', color: '#fff', fontSize: '0.72rem' }}
+                            style={{ padding: '6px 8px', background: 'var(--bg-void)', border: '1px solid var(--border-default)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.72rem' }}
                           />
                           <div style={{ display: 'flex', gap: '4px' }}>
                             {['Blurry', 'Wrong Value', 'Invalid Doc'].map(preset => (
                               <button
                                 key={preset}
                                 onClick={() => setRejectionReasons({ ...rejectionReasons, [request.id]: preset })}
-                                style={{ padding: '2px 4px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-subtle)', borderRadius: '4px', color: '#cbd5e1', fontSize: '0.58rem', cursor: 'pointer' }}
+                                style={{ padding: '2px 4px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '4px', color: 'var(--text-secondary)', fontSize: '0.58rem', cursor: 'pointer' }}
                               >
                                 {preset}
                               </button>
@@ -1395,8 +1441,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 </span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
                   {approvals.filter(a => a.status !== 'pending').map(a => (
-                    <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', padding: '6px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                      <span style={{ color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px' }}>{a.title}</span>
+                    <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', padding: '6px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
+                      <span style={{ color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px', fontWeight: '600' }}>{a.title}</span>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <span style={{ color: 'var(--text-muted)' }}>{a.driverName}</span>
                         <span style={{
@@ -1421,7 +1467,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               onClick={() => setControlsOpen(!controlsOpen)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
             >
-              <h3 style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <h3 style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
                 <Power size={16} className="text-brand" />
                 Simulator Environment Overrides
               </h3>
@@ -1431,9 +1477,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             {controlsOpen && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
                 {/* Online/Offline Shadow-Zone Switch */}
-                <div style={{ padding: '10px 14px', background: 'var(--panel-deep)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#fff' }}>Network Connection</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-primary)' }}>Network Connection</span>
                     <span style={{ fontSize: '0.68rem', color: isOnline ? 'var(--accent-success)' : 'var(--accent-danger)' }}>{isOnline ? 'Online (Direct Sync)' : 'Offline (Shadow Zone)'}</span>
                   </div>
                   <button 
@@ -1446,9 +1492,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 </div>
 
                 {/* Duty Toggle (On-Duty / Off-Duty) */}
-                <div style={{ padding: '10px 14px', background: 'var(--panel-deep)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#fff' }}>Driver Duty Status</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-primary)' }}>Driver Duty Status</span>
                     <span style={{ fontSize: '0.68rem', color: isOnDuty ? 'var(--brand)' : 'var(--text-secondary)' }}>{isOnDuty ? 'On-Duty' : 'Off-Duty (Resting)'}</span>
                   </div>
                   <button 
@@ -1461,9 +1507,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 </div>
 
                 {/* Motion State Toggle */}
-                <div style={{ padding: '10px 14px', background: 'var(--panel-deep)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '10px 14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#fff' }}>Truck Motion State</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-primary)' }}>Truck Motion State</span>
                     <span style={{ fontSize: '0.68rem', color: isMoving ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}>{isMoving ? 'Moving (~65 km/h)' : 'Stationary'}</span>
                   </div>
                   <button 
@@ -1494,14 +1540,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             
             {telemetryOpen && (
               <div style={{ marginTop: '14px' }}>
-                <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'var(--panel-deep)', padding: '4px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '4px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {telemetryLogs.length === 0 ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                       Waiting for driver login, On-Duty status, and Trip "In Transit"...
                     </div>
                   ) : (
                     telemetryLogs.map((log) => (
-                      <div key={log.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div key={log.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ 
                             fontWeight: '600',
@@ -1518,18 +1564,18 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             {new Date(log.recorded_at).toLocaleTimeString()}
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#fff', fontWeight: '500' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: '600' }}>
                           {getHumanReadableLocation(log.location, log.speed_kmh, log.stationary)}
                         </div>
                         <div style={{ display: 'flex', gap: '12px', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
                           <span>Speed: <strong style={{ color: 'var(--accent-cyan)' }}>{log.speed_kmh} km/h</strong></span>
-                          <span>Battery: <strong style={{ color: 'var(--brand-light)' }}>🔋 {log.battery_level}%</strong></span>
+                          <span>Battery: <strong style={{ color: 'var(--brand)' }}>🔋 {log.battery_level}%</strong></span>
                           <span style={{ marginLeft: 'auto', cursor: 'pointer', textDecoration: 'underline', color: 'var(--accent-violet)' }} onClick={() => toggleRawLog(log.id)}>
                             {expandedLogs[log.id] ? 'Hide Coordinates' : 'Inspect Coordinates'}
                           </span>
                         </div>
                         {expandedLogs[log.id] && (
-                          <div style={{ marginTop: '4px', padding: '6px', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                          <div style={{ marginTop: '4px', padding: '6px', background: 'var(--bg-void)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
                             GIS: {log.location}
                           </div>
                         )}
@@ -1556,7 +1602,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             
             {dbOpen && (
               <div style={{ marginTop: '14px' }}>
-                <div style={{ background: 'var(--panel-deep)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
                   {sqliteBuffer.length === 0 ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                       SQLite queue is empty. (Buffered changes auto-sync when online).
@@ -1567,9 +1613,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         const readableDesc = getReadableBufferAction(action);
                         const isExpanded = expandedActions[action.id];
                         return (
-                          <div key={action.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px', background: 'rgba(255,255,255,0.01)', borderLeft: '3px solid var(--accent-violet)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                          <div key={action.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px', background: 'var(--bg-card)', borderLeft: '3px solid var(--accent-violet)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <span style={{ color: '#fff', fontWeight: '500' }}>{readableDesc}</span>
+                              <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{readableDesc}</span>
                               <span className="badge" style={{ background: 'var(--accent-warning-glow)', color: 'var(--accent-warning)', fontSize: '0.6rem', padding: '1px 4px' }}>
                                 Buffered
                               </span>
@@ -1581,7 +1627,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                               </span>
                             </div>
                             {isExpanded && (
-                              <pre style={{ margin: '4px 0 0 0', padding: '6px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', fontSize: '0.68rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', fontFamily: 'monospace', border: '1px solid var(--border-color)' }}>
+                              <pre style={{ margin: '4px 0 0 0', padding: '6px', background: 'var(--bg-void)', borderRadius: '4px', fontSize: '0.68rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', fontFamily: 'monospace', border: '1px solid var(--border-color)' }}>
                                 {JSON.stringify(action.payload, null, 2)}
                               </pre>
                             )}
@@ -1600,13 +1646,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             <h3 style={{ marginBottom: '12px', fontSize: '0.95rem' }}>Logistics Blueprint Architecture Overview</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
-                <h4 style={{ color: 'var(--brand-light)', fontSize: '0.82rem', marginBottom: '4px' }}>On-Device Battery Strategy</h4>
+                <h4 style={{ color: 'var(--brand)', fontSize: '0.82rem', marginBottom: '4px' }}>On-Device Battery Strategy</h4>
                 <p className="text-secondary" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
                   Standard location APIs poll continuously. Production apps deploy adaptive distance filtering combined with Motion Detection APIs to sleep GPS.
                 </p>
               </div>
               <div>
-                <h4 style={{ color: 'var(--brand-light)', fontSize: '0.82rem', marginBottom: '4px' }}>ePOD WebP Compression</h4>
+                <h4 style={{ color: 'var(--brand)', fontSize: '0.82rem', marginBottom: '4px' }}>ePOD WebP Compression</h4>
                 <p className="text-secondary" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
                   Raw photos exhaust bandwidth. We compress delivery documents directly on-device to WebP (converting ~4.2 MB to ~185 KB) before pushing to S3.
                 </p>
@@ -1620,26 +1666,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         <div style={{ position: 'relative' }}>
           
           {/* PHONE SHELL CONTAINER */}
-          <div style={{
-            width: '360px',
-            height: '740px',
-            borderRadius: '44px',
-            border: '14px solid #1a2235',
-            background: '#070b14',
-            boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 240, 255, 0.15)',
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            color: '#ffffff',
-            fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-          }}>
+          <div className="driver-phone-shell">
             
             {/* SCREEN NOTCH */}
-            <div style={{
+            <div className="driver-notch" style={{
               width: '130px',
               height: '24px',
-              background: '#1a2235',
+              background: 'var(--bg-card)',
               borderRadius: '0 0 16px 16px',
               position: 'absolute',
               top: '0',
@@ -1650,8 +1683,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               justifyContent: 'center',
               alignItems: 'center'
             }}>
-              <div style={{ width: '36px', height: '4px', background: '#2c374e', borderRadius: '2px', marginRight: '8px' }} />
-              <div style={{ width: '6px', height: '6px', background: '#070b14', borderRadius: '50%' }} />
+              <div style={{ width: '36px', height: '4px', background: 'var(--border-default)', borderRadius: '2px', marginRight: '8px' }} />
+              <div style={{ width: '6px', height: '6px', background: 'var(--bg-void)', borderRadius: '50%' }} />
             </div>
 
             {/* STATUS BAR */}
@@ -1662,47 +1695,47 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               justifyContent: 'space-between',
               alignItems: 'center',
               fontSize: '0.72rem',
-              color: '#ffffff',
-              fontWeight: '600',
+              color: 'var(--text-primary)',
+              fontWeight: '700',
               zIndex: '98',
               marginTop: '4px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-              background: '#070b14'
+              borderBottom: '1px solid var(--border-subtle)',
+              background: 'var(--bg-secondary)'
             }}>
               <span>14:38</span>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isOnDuty ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: isOnDuty ? '#10b981' : '#94a3b8', fontWeight: '800', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isOnDuty ? 'var(--accent-success-glow)' : 'var(--bg-elevated)', color: isOnDuty ? 'var(--accent-success)' : 'var(--text-muted)', fontWeight: '800', border: '1px solid var(--border-subtle)' }}>
                   {isOnDuty ? 'DUTY' : 'REST'}
                 </span>
                 {isOnline ? (
-                  <Wifi size={11} style={{ color: '#10b981' }} />
+                  <Wifi size={12} style={{ color: 'var(--accent-success)' }} />
                 ) : (
-                  <WifiOff size={11} style={{ color: '#f43f5e' }} />
+                  <WifiOff size={12} style={{ color: 'var(--accent-danger)' }} />
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  <Battery size={13} style={{ transform: 'rotate(-90deg)', color: '#ffffff' }} />
+                  <Battery size={14} style={{ transform: 'rotate(-90deg)', color: 'var(--text-primary)' }} />
                   <span>{Math.round(batteryLevel)}%</span>
                 </div>
               </div>
             </div>
 
             {/* MAIN APP CONTAINER */}
-            <div style={{ flex: '1', display: 'flex', flexDirection: 'column', overflowY: 'auto', position: 'relative', background: 'radial-gradient(circle at top, #0f1c30 0%, #070b14 100%)' }}>
+            <div style={{ flex: '1', display: 'flex', flexDirection: 'column', overflowY: 'auto', position: 'relative', background: 'var(--bg-primary)' }}>
               
               {/* OFFLINE INDICATOR BANNER */}
               {!isOnline && (
-                <div style={{ background: '#f43f5e', color: '#fff', fontSize: '0.7rem', textAlign: 'center', padding: '5px 0', fontWeight: 'bold', letterSpacing: '0.5px', zIndex: 10 }}>
+                <div style={{ background: 'var(--accent-danger)', color: '#fff', fontSize: '0.7rem', textAlign: 'center', padding: '5px 0', fontWeight: 'bold', letterSpacing: '0.5px', zIndex: 10 }}>
                   OFFLINE MODE (SAVING LOCALLY)
                 </div>
               )}
 
               {/* SYNCING LOADER OVERLAY */}
               {syncing && (
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(7, 11, 20, 0.95)', zIndex: 95, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
-                  <div className="spinner-loader" style={{ width: '36px', height: '36px', borderColor: '#f59e0b', borderTopColor: 'transparent' }} />
-                  <span style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 'bold' }}>Syncing Data...</span>
-                  <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>Syncing SQLite buffered transactions</span>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--bg-void)', opacity: 0.95, zIndex: 95, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
+                  <div className="spinner-loader" style={{ width: '36px', height: '36px', borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
+                  <span style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 'bold' }}>Syncing Data...</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>Syncing SQLite buffered transactions</span>
                 </div>
               )}
 
@@ -1717,34 +1750,34 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   height: '100%',
                   gap: '24px',
                   textAlign: 'center',
-                  background: 'rgba(7, 11, 20, 0.96)',
+                  background: 'var(--bg-void)',
                   zIndex: 90
                 }}>
                   <div style={{
                     width: '70px',
                     height: '70px',
                     borderRadius: '50%',
-                    background: 'rgba(0, 240, 255, 0.1)',
-                    border: '2px solid #00f0ff',
+                    background: 'var(--brand-glow)',
+                    border: '2px solid var(--brand)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 0 25px rgba(0, 240, 255, 0.3)',
+                    boxShadow: '0 0 25px var(--brand-glow)',
                     animation: 'pulse 1.8s infinite'
                   }}>
-                    <ShieldAlert size={36} style={{ color: '#00f0ff' }} />
+                    <ShieldAlert size={36} style={{ color: 'var(--brand)' }} />
                   </div>
                   
                   <div>
-                    <h4 style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: '800', marginBottom: '8px' }}>Waiting for Owner Review</h4>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: '1.4', padding: '0 10px' }}>
+                    <h4 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: '800', marginBottom: '8px' }}>Waiting for Owner Review</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4', padding: '0 10px' }}>
                       Your submission has been securely uploaded and queued for validation. The owner has been notified.
                     </p>
                   </div>
 
                   <div style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '12px',
                     padding: '12px 18px',
                     width: '100%',
@@ -1754,17 +1787,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     fontSize: '0.78rem'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Type:</span>
-                      <strong style={{ color: '#ffffff' }}>{activePendingApproval?.title}</strong>
+                      <span style={{ color: 'var(--text-muted)' }}>Type:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{activePendingApproval?.title}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Ref ID:</span>
-                      <span style={{ color: '#f59e0b', fontFamily: 'monospace' }}>{activePendingApproval?.id.split('-').slice(0, 2).join('-')}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Ref ID:</span>
+                      <span style={{ color: 'var(--brand)', fontFamily: 'monospace' }}>{activePendingApproval?.id.split('-').slice(0, 2).join('-')}</span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#00f0ff', fontSize: '0.78rem', fontWeight: 'bold' }}>
-                    <div className="spinner-loader" style={{ width: '14px', height: '14px', borderColor: '#00f0ff', borderTopColor: 'transparent' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand)', fontSize: '0.78rem', fontWeight: 'bold' }}>
+                    <div className="spinner-loader" style={{ width: '14px', height: '14px', borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
                     Awaiting verification...
                   </div>
                 </div>
@@ -1780,33 +1813,33 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   height: '100%',
                   gap: '20px',
                   textAlign: 'center',
-                  background: '#070b14',
+                  background: 'var(--bg-void)',
                   zIndex: 90
                 }}>
                   <div style={{
                     width: '64px',
                     height: '64px',
                     borderRadius: '50%',
-                    background: 'rgba(244, 63, 94, 0.1)',
-                    border: '2px solid #f43f5e',
+                    background: 'var(--accent-danger-glow)',
+                    border: '2px solid var(--accent-danger)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 0 20px rgba(244, 63, 94, 0.2)'
+                    boxShadow: '0 0 20px var(--accent-danger-glow)'
                   }}>
-                    <XCircle size={32} style={{ color: '#f43f5e' }} />
+                    <XCircle size={32} style={{ color: 'var(--accent-danger)' }} />
                   </div>
                   
                   <div>
-                    <h4 style={{ color: '#ffffff', fontSize: '1.25rem', fontWeight: '800', marginBottom: '8px' }}>Submission Rejected</h4>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: '1.4' }}>
+                    <h4 style={{ color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: '800', marginBottom: '8px' }}>Submission Rejected</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
                       The fleet owner has rejected your submission. Please check the reason below and resubmit.
                     </p>
                   </div>
 
                   <div style={{
-                    background: 'rgba(244, 63, 94, 0.05)',
-                    border: '1px solid rgba(244, 63, 94, 0.2)',
+                    background: 'var(--accent-danger-glow)',
+                    border: '1px solid var(--accent-danger)',
                     borderRadius: '12px',
                     padding: '14px',
                     width: '100%',
@@ -1815,8 +1848,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     gap: '4px',
                     textAlign: 'left'
                   }}>
-                    <span style={{ fontSize: '0.65rem', color: '#f43f5e', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>REJECTION REASON</span>
-                    <p style={{ fontSize: '0.82rem', color: '#ffffff', fontWeight: '600', margin: 0 }}>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--accent-danger)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>REJECTION REASON</span>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: '600', margin: 0 }}>
                       "{activePendingApproval?.rejectionReason || 'Invalid document format'}"
                     </p>
                   </div>
@@ -1845,12 +1878,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       padding: '12px 0', 
                       fontSize: '0.85rem',
                       fontWeight: '800',
-                      background: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
-                      color: '#ffffff',
-                      border: 'none',
                       borderRadius: '10px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 15px rgba(244, 63, 94, 0.3)'
+                      cursor: 'pointer'
                     }}
                   >
                     🔄 Retake & Resubmit
@@ -1862,28 +1891,27 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               {currentScreen === 'login' && (
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', gap: '16px' }}>
                   <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                    <div style={{ width: '54px', height: '54px', borderRadius: '16px', background: 'rgba(0, 240, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', border: '1px solid rgba(0, 240, 255, 0.3)', boxShadow: '0 0 15px rgba(0, 240, 255, 0.2)' }}>
-                      <Smartphone size={26} style={{ color: '#00f0ff' }} />
+                    <div style={{ width: '54px', height: '54px', borderRadius: '16px', background: 'var(--brand-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', border: '1px solid var(--border-glow)' }}>
+                      <Smartphone size={26} style={{ color: 'var(--brand)' }} />
                     </div>
-                    <h4 style={{ color: '#ffffff', fontSize: '1.35rem', fontWeight: '800', letterSpacing: '0.5px' }}>LogiSync Mobile</h4>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>
+                    <h4 style={{ color: 'var(--text-primary)', fontSize: '1.35rem', fontWeight: '800', letterSpacing: '0.5px' }}>LogiSync Mobile</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       Driver On-Duty App
                     </p>
                   </div>
 
                   {/* One-Tap Auto Login */}
                   <div style={{ 
-                    background: 'rgba(15, 23, 42, 0.6)', 
-                    border: '1px solid rgba(255, 255, 255, 0.06)', 
+                    background: 'var(--bg-elevated)', 
+                    border: '1px solid var(--border-subtle)', 
                     borderRadius: '16px', 
                     padding: '16px', 
                     textAlign: 'center',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '10px',
-                    backdropFilter: 'blur(10px)'
+                    gap: '10px'
                   }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f59e0b', letterSpacing: '1px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--accent-warning)', letterSpacing: '1px' }}>
                       ⚡ QUICK DEMO TESTING
                     </span>
                     <button 
@@ -1896,22 +1924,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         setCurrentScreen('tripDetail');
                         setActiveTab('trip');
                       }}
-                      className="btn"
+                      className="btn btn-brand"
                       style={{ 
                         width: '100%', 
                         padding: '12px 0', 
                         fontSize: '0.85rem',
                         fontWeight: '800',
-                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                        color: '#070b14',
-                        border: 'none',
-                        borderRadius: '10px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '6px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)'
+                        cursor: 'pointer'
                       }}
                     >
                       <Sparkles size={14} />
@@ -1920,39 +1943,39 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
-                    <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-                    <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8', letterSpacing: '0.5px' }}>OR ENTER OTP</span>
-                    <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+                    <span style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>OR ENTER OTP</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                   </div>
 
                   <form onSubmit={otpSent ? handleVerifyOtp : handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <div>
-                      <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Mobile Number</label>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Mobile Number</label>
                       <input 
                         type="text" 
                         placeholder="e.g. 9876543210" 
                         value={loginPhone}
                         onChange={(e) => setLoginPhone(e.target.value)}
                         disabled={otpSent}
-                        style={{ width: '100%', padding: '12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', color: '#ffffff', fontSize: '0.85rem', fontWeight: '600' }}
+                        style={{ width: '100%', padding: '12px', background: 'var(--bg-void)', border: '1px solid var(--border-default)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}
                       />
                     </div>
 
                     {otpSent && (
                       <div className="animate-slide-down">
-                        <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Enter 6-Digit OTP</label>
+                        <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Enter 6-Digit OTP</label>
                         <input 
                           type="password" 
                           placeholder="Autofill: 123456" 
                           value={loginOtp}
                           onChange={(e) => setLoginOtp(e.target.value)}
-                          style={{ width: '100%', padding: '12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', color: '#ffffff', fontSize: '1rem', fontWeight: '700', textAlign: 'center', letterSpacing: '4px' }}
+                          style={{ width: '100%', padding: '12px', background: 'var(--bg-void)', border: '1px solid var(--border-default)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '1rem', fontWeight: '700', textAlign: 'center', letterSpacing: '4px' }}
                         />
                       </div>
                     )}
 
                     {authError && (
-                      <div style={{ color: '#f43f5e', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+                      <div style={{ color: 'var(--accent-danger)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                         <AlertCircle size={12} />
                         {authError}
                       </div>
@@ -1960,7 +1983,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                     <button 
                       type="submit" 
-                      className="btn" 
+                      className="btn btn-brand" 
                       style={{ 
                         width: '100%', 
                         padding: '12px', 
@@ -1969,17 +1992,12 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         justifyContent: 'center', 
                         alignItems: 'center', 
                         fontWeight: '800',
-                        background: '#ffffff',
-                        color: '#070b14',
-                        border: 'none',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(255,255,255,0.1)'
+                        cursor: 'pointer'
                       }}
                       disabled={otpLoading}
                     >
                       {otpLoading ? (
-                        <div className="spinner-loader" style={{ width: '14px', height: '14px', borderColor: '#070b14', borderTopColor: 'transparent' }} />
+                        <div className="spinner-loader" style={{ width: '14px', height: '14px', borderColor: 'currentColor', borderTopColor: 'transparent' }} />
                       ) : otpSent ? (
                         'Verify & Login'
                       ) : (
@@ -1998,45 +2016,45 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {currentScreen === 'odoStart' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: '#00f0ff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '2px' }}>
                           ◀ Back
                         </button>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#ffffff' }}>Vehicle Inspection Start</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>Vehicle Inspection Start</span>
                       </div>
 
                       <form onSubmit={handleStartTripSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ background: 'rgba(15,23,42,0.5)', padding: '14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <label style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Odometer Value (km)</label>
+                        <div style={{ background: 'var(--bg-elevated)', padding: '14px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Odometer Value (km)</label>
                           <input 
                             type="number"
                             placeholder="e.g. 125430"
                             value={odoValue}
                             onChange={(e) => setOdoValue(e.target.value)}
                             required
-                            style={{ width: '100%', padding: '12px', background: '#070b14', border: '1px solid rgba(0, 240, 255, 0.2)', borderRadius: '8px', color: '#ffffff', fontSize: '1.2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '2px' }}
+                            style={{ width: '100%', padding: '12px', background: 'var(--bg-void)', border: '1px solid var(--brand)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '2px' }}
                           />
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Odometer Photo</label>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Odometer Photo</label>
                           {odoPhoto ? (
-                            <div style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)', overflow: 'hidden' }}>
-                              <div style={{ height: '90px', background: '#070b14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--accent-success)', overflow: 'hidden' }}>
+                              <div style={{ height: '90px', background: 'var(--bg-void)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <span style={{ fontSize: '1.5rem' }}>📸</span>
                               </div>
-                              <div style={{ padding: '8px 12px', display: 'flex', justify: 'space-between', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)', fontSize: '0.72rem' }}>
-                                <span style={{ color: '#10b981', fontWeight: '800' }}>✓ Photo Captured</span>
-                                <button type="button" onClick={() => setOdoPhoto(null)} style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.72rem', fontWeight: '800' }}>Retake</button>
+                              <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--accent-success-glow)', fontSize: '0.72rem' }}>
+                                <span style={{ color: 'var(--accent-success)', fontWeight: '800' }}>✓ Photo Captured</span>
+                                <button type="button" onClick={() => setOdoPhoto(null)} style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.72rem', fontWeight: '800' }}>Retake</button>
                               </div>
                             </div>
                           ) : (
-                            <button type="button" onClick={() => setOdoPhoto(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '14px 0', fontSize: '0.8rem', fontWeight: '800', background: 'rgba(255,255,255,0.05)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', cursor: 'pointer' }}>
-                              <Camera size={14} style={{ color: '#00f0ff' }} /> Take Odometer Picture
+                            <button type="button" onClick={() => setOdoPhoto(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '14px 0', fontSize: '0.8rem', fontWeight: '800', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '12px', cursor: 'pointer' }}>
+                              <Camera size={14} style={{ color: 'var(--brand)' }} /> Take Odometer Picture
                             </button>
                           )}
                         </div>
 
-                        <button type="submit" className="btn" style={{ width: '100%', fontSize: '0.85rem', padding: '12px 0', fontWeight: '800', background: '#00f0ff', color: '#070b14', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0, 240, 255, 0.3)' }}>
+                        <button type="submit" className="btn btn-brand" style={{ width: '100%', fontSize: '0.85rem', padding: '12px 0', fontWeight: '800', borderRadius: '10px', cursor: 'pointer' }}>
                           Complete Inspection
                         </button>
                       </form>
@@ -2047,45 +2065,45 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {currentScreen === 'odoEnd' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
+                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
                           ◀ Back
                         </button>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#ffffff' }}>End Journey (Odo)</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>End Journey (Odo)</span>
                       </div>
 
                       <form onSubmit={handleEndTripSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ background: 'rgba(15,23,42,0.5)', padding: '14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <label style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Ending Odometer Reading (km)</label>
+                        <div style={{ background: 'var(--bg-elevated)', padding: '14px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Ending Odometer Reading (km)</label>
                           <input 
                             type="number"
                             placeholder={`Must exceed ${selectedTrip?.odoStart || 125430}`}
                             value={odoValue}
                             onChange={(e) => setOdoValue(e.target.value)}
                             required
-                            style={{ width: '100%', padding: '12px', background: '#070b14', border: '1px solid rgba(244, 63, 94, 0.2)', borderRadius: '8px', color: '#ffffff', fontSize: '1.2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '2px' }}
+                            style={{ width: '100%', padding: '12px', background: 'var(--bg-void)', border: '1px solid var(--accent-danger)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: '800', textAlign: 'center', letterSpacing: '2px' }}
                           />
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Closing Odometer Photo</label>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Closing Odometer Photo</label>
                           {odoPhoto ? (
-                            <div style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid rgba(244, 63, 94, 0.3)', overflow: 'hidden' }}>
-                              <div style={{ height: '90px', background: '#070b14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--accent-danger)', overflow: 'hidden' }}>
+                              <div style={{ height: '90px', background: 'var(--bg-void)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <span style={{ fontSize: '1.5rem' }}>📸</span>
                               </div>
-                              <div style={{ padding: '8px 12px', display: 'flex', justify: 'space-between', alignItems: 'center', background: 'rgba(244, 63, 94, 0.1)', fontSize: '0.72rem' }}>
-                                <span style={{ color: '#f43f5e', fontWeight: '800' }}>✓ Closing Photo Captured</span>
-                                <button type="button" onClick={() => setOdoPhoto(null)} style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.72rem', fontWeight: '800' }}>Retake</button>
+                              <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--accent-danger-glow)', fontSize: '0.72rem' }}>
+                                <span style={{ color: 'var(--accent-danger)', fontWeight: '800' }}>✓ Closing Photo Captured</span>
+                                <button type="button" onClick={() => setOdoPhoto(null)} style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.72rem', fontWeight: '800' }}>Retake</button>
                               </div>
                             </div>
                           ) : (
-                            <button type="button" onClick={() => setOdoPhoto(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '14px 0', fontSize: '0.8rem', fontWeight: '800', background: 'rgba(255,255,255,0.05)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', cursor: 'pointer' }}>
-                              <Camera size={14} style={{ color: '#f43f5e' }} /> Capture End Odo Picture
+                            <button type="button" onClick={() => setOdoPhoto(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '14px 0', fontSize: '0.8rem', fontWeight: '800', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '12px', cursor: 'pointer' }}>
+                              <Camera size={14} style={{ color: 'var(--accent-danger)' }} /> Capture End Odo Picture
                             </button>
                           )}
                         </div>
 
-                        <button type="submit" className="btn" style={{ width: '100%', fontSize: '0.85rem', padding: '12px 0', fontWeight: '800', background: '#f43f5e', color: '#ffffff', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(244, 63, 94, 0.3)' }}>
+                        <button type="submit" className="btn btn-danger" style={{ width: '100%', fontSize: '0.85rem', padding: '12px 0', fontWeight: '800', borderRadius: '10px', cursor: 'pointer' }}>
                           Close Trip Ledger
                         </button>
                       </form>
@@ -2096,34 +2114,34 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {currentScreen === 'epod' && epodLr && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: '#00f0ff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
+                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
                           ◀ Back
                         </button>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#ffffff' }}>ePOD Submission</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>ePOD Submission</span>
                       </div>
 
                       <form onSubmit={handleEpodSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
-                          <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>LR Number:</span>
-                          <strong style={{ color: '#f59e0b', display: 'block', fontSize: '0.85rem', fontWeight: '800' }}>{epodLr.lrNo}</strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>LR Number:</span>
+                          <strong style={{ color: 'var(--brand)', display: 'block', fontSize: '0.85rem', fontWeight: '800' }}>{epodLr.lrNo}</strong>
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '6px' }}>Receiver Full Name</label>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>Receiver Full Name</label>
                           <input 
-                            type="text"
-                            placeholder="e.g. S. Sharma"
+                            type="text" 
+                            placeholder="e.g. S. Sharma" 
                             value={epodSignerName}
                             onChange={(e) => setEpodSignerName(e.target.value)}
                             required
-                            style={{ width: '100%', padding: '10px', background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#ffffff', fontSize: '0.85rem', fontWeight: '600' }}
+                            style={{ width: '100%', padding: '10px', background: 'var(--bg-void)', border: '1px solid var(--border-default)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600' }}
                           />
                         </div>
 
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700' }}>Sign on Glass</label>
-                            <button type="button" onClick={clearSignature} style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer', textDecoration: 'underline' }}>
+                            <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700' }}>Sign on Glass</label>
+                            <button type="button" onClick={clearSignature} style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer', textDecoration: 'underline' }}>
                               Clear
                             </button>
                           </div>
@@ -2139,10 +2157,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                               onTouchStart={startDrawing}
                               onTouchMove={draw}
                               onTouchEnd={stopDrawing}
-                              style={{ background: '#ffffff', borderRadius: '8px', width: '100%', height: '110px', cursor: 'crosshair', touchAction: 'none' }}
+                              style={{ background: '#ffffff', border: '1px solid var(--border-default)', borderRadius: '8px', width: '100%', height: '110px', cursor: 'crosshair', touchAction: 'none' }}
                             />
                             {!hasSigned && (
-                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', color: '#94a3b8', fontSize: '0.75rem', fontStyle: 'italic', fontWeight: '600' }}>
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', fontWeight: '600' }}>
                                 Sign Here
                               </div>
                             )}
@@ -2151,18 +2169,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                         <button 
                           type="submit" 
-                          className="btn" 
+                          className="btn btn-brand" 
                           style={{ 
                             width: '100%', 
                             fontSize: '0.85rem', 
                             padding: '12px 0', 
                             fontWeight: '800',
-                            background: '#00f0ff',
-                            color: '#070b14',
-                            border: 'none',
                             borderRadius: '10px',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 15px rgba(0, 240, 255, 0.3)'
+                            cursor: 'pointer'
                           }}
                         >
                           Confirm & Save Signature
@@ -2175,43 +2189,39 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {currentScreen === 'waybill' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: '#00f0ff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
+                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
                           ◀ Back
                         </button>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#ffffff' }}>Upload Waybill Photo</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>Upload Waybill Photo</span>
                       </div>
 
                       <form onSubmit={handleWaybillUpload} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px dashed rgba(0, 240, 255, 0.3)', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
-                          <Camera size={36} style={{ color: '#00f0ff', marginBottom: '10px' }} />
-                          <p style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '600' }}>Waybill dial viewfinder</p>
-                          <p style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '4px' }}>Fit the signed page inside limits</p>
+                        <div style={{ background: 'var(--bg-elevated)', border: '1px dashed var(--brand)', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
+                          <Camera size={36} style={{ color: 'var(--brand)', marginBottom: '10px' }} />
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '600' }}>Waybill dial viewfinder</p>
+                          <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '4px' }}>Fit the signed page inside limits</p>
                         </div>
 
                         {isCompressing ? (
                           <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                            <span style={{ fontSize: '0.72rem', color: '#00d2ff', display: 'block', marginBottom: '6px', fontWeight: '700' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--brand)', display: 'block', marginBottom: '6px', fontWeight: '700' }}>
                               Compacting WebP Document...
                             </span>
-                            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ width: '80%', height: '100%', background: '#00d2ff', animation: 'pulse 1.2s infinite' }} />
+                            <div style={{ width: '100%', height: '4px', background: 'var(--border-subtle)', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ width: '80%', height: '100%', background: 'var(--brand)', animation: 'pulse 1.2s infinite' }} />
                             </div>
                           </div>
                         ) : (
                           <button 
                             type="submit" 
-                            className="btn" 
+                            className="btn btn-brand" 
                             style={{ 
                               width: '100%', 
                               fontSize: '0.85rem', 
                               padding: '12px 0', 
                               fontWeight: '800',
-                              background: '#00f0ff',
-                              color: '#070b14',
-                              border: 'none',
                               borderRadius: '10px',
-                              cursor: 'pointer',
-                              boxShadow: '0 4px 15px rgba(0, 240, 255, 0.3)'
+                              cursor: 'pointer'
                             }}
                           >
                             Capture & Compress Waybill
@@ -2225,14 +2235,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {currentScreen === 'cargo' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: '#00f0ff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
+                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
                           ◀ Back
                         </button>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#ffffff' }}>Cargo Verification</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>Cargo Verification</span>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(15, 23, 42, 0.6)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <p style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: '1.4' }}>Verify the package conditions before completing receipt handover.</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-elevated)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>Verify the package conditions before completing receipt handover.</p>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
                           {[
@@ -2241,8 +2251,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             'Container lock seal check complete',
                             'Delivery labels match receiver bill'
                           ].map((checkItem, index) => (
-                            <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#ffffff', cursor: 'pointer' }}>
-                              <input type="checkbox" defaultChecked style={{ accentColor: '#00f0ff' }} />
+                            <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                              <input type="checkbox" defaultChecked style={{ accentColor: 'var(--brand)' }} />
                               <span>{checkItem}</span>
                             </label>
                           ))}
@@ -2251,18 +2261,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                       <button 
                         onClick={handleCargoVerification}
-                        className="btn" 
+                        className="btn btn-brand" 
                         style={{ 
                           width: '100%', 
                           fontSize: '0.85rem', 
                           padding: '12px 0', 
                           fontWeight: '800',
-                          background: '#00f0ff',
-                          color: '#070b14',
-                          border: 'none',
                           borderRadius: '10px',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 15px rgba(0, 240, 255, 0.3)'
+                          cursor: 'pointer'
                         }}
                       >
                         Verify Cargo Checks
@@ -2274,16 +2280,16 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {currentScreen === 'expense' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: '#00f0ff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
+                        <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
                           ◀ Back
                         </button>
-                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#ffffff' }}>Expense Logger</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>Expense Logger</span>
                       </div>
 
                       {!ocrResult && !ocrScanning && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           <div>
-                            <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Expense Category</label>
+                            <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Expense Category</label>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                               {[
                                 { id: 'fuel', label: '⛽ Fuel', desc: 'Diesel / Gas' },
@@ -2297,11 +2303,11 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   onClick={() => setExpenseType(item.id)}
                                   style={{
                                     padding: '10px 8px',
-                                    background: expenseType === item.id ? '#f59e0b' : 'rgba(15, 23, 42, 0.6)',
+                                    background: expenseType === item.id ? 'var(--brand)' : 'var(--bg-elevated)',
                                     border: '1px solid',
-                                    borderColor: expenseType === item.id ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)',
+                                    borderColor: expenseType === item.id ? 'var(--brand)' : 'var(--border-subtle)',
                                     borderRadius: '10px',
-                                    color: expenseType === item.id ? '#070b14' : '#ffffff',
+                                    color: expenseType === item.id ? '#ffffff' : 'var(--text-primary)',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
@@ -2310,19 +2316,19 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   }}
                                 >
                                   <strong style={{ fontSize: '0.85rem', fontWeight: '800' }}>{item.label}</strong>
-                                  <span style={{ fontSize: '0.65rem', color: expenseType === item.id ? '#070b14' : '#94a3b8' }}>{item.desc}</span>
+                                  <span style={{ fontSize: '0.65rem', color: expenseType === item.id ? '#ffffff' : 'var(--text-muted)' }}>{item.desc}</span>
                                 </button>
                               ))}
                             </div>
                           </div>
 
                           <div>
-                            <label style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Receipt Scanner</label>
+                            <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'block', marginBottom: '8px' }}>Receipt Scanner</label>
                             <div style={{ 
                               position: 'relative', 
-                              background: '#070b14', 
+                              background: 'var(--bg-void)', 
                               borderRadius: '12px', 
-                              border: '1px solid rgba(255, 255, 255, 0.1)', 
+                              border: '1px solid var(--border-subtle)', 
                               overflow: 'hidden', 
                               padding: (ocrFile || useWebcam) ? '0' : '20px 10px', 
                               textAlign: 'center',
@@ -2345,16 +2351,16 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 <img src={ocrFile} alt="Receipt Preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                               ) : (
                                 <>
-                                  <Camera size={24} style={{ color: '#f59e0b', marginBottom: '8px' }} />
-                                  <span style={{ fontSize: '0.72rem', color: '#cbd5e1', display: 'block', fontWeight: '700' }}>Place receipt in viewfinder</span>
-                                  <span style={{ fontSize: '0.62rem', color: '#64748b', display: 'block', marginTop: '2px' }}>Click to select/snap receipt image</span>
+                                  <Camera size={24} style={{ color: 'var(--brand)', marginBottom: '8px' }} />
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-primary)', display: 'block', fontWeight: '700' }}>Place receipt in viewfinder</span>
+                                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>Click to select/snap receipt image</span>
                                 </>
                               )}
                               {!useWebcam && !ocrFile && (
                                 <input 
                                   type="file" 
                                   accept="image/*" 
-                                  capture="environment"
+                                  capture="environment" 
                                   onChange={handleFileChange}
                                   style={{
                                     position: 'absolute',
@@ -2369,23 +2375,19 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                               <button 
                                 type="button" 
                                 onClick={captureWebcam}
-                                className="btn"
+                                className="btn btn-success"
                                 style={{ 
                                   width: '100%', 
-                                  marginTop: '10px',
-                                  padding: '12px 0',
-                                  fontSize: '0.85rem',
-                                  fontWeight: '800',
-                                  background: '#10b981',
-                                  color: '#070b14',
-                                  border: 'none',
-                                  borderRadius: '10px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '6px',
-                                  cursor: 'pointer',
-                                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+                                  marginTop: '10px', 
+                                  padding: '12px 0', 
+                                  fontSize: '0.85rem', 
+                                  fontWeight: '800', 
+                                  borderRadius: '10px', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  gap: '6px', 
+                                  cursor: 'pointer' 
                                 }}
                               >
                                 <Camera size={14} /> Capture Photo
@@ -2395,23 +2397,19 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 type="button" 
                                 onClick={handleOcrSnap}
                                 disabled={!ocrFile}
-                                className="btn"
+                                className="btn btn-brand"
                                 style={{ 
                                   width: '100%', 
-                                  marginTop: '10px',
-                                  padding: '12px 0',
-                                  fontSize: '0.85rem',
-                                  fontWeight: '800',
-                                  background: '#f59e0b',
-                                  color: '#070b14',
-                                  border: 'none',
-                                  borderRadius: '10px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '6px',
+                                  marginTop: '10px', 
+                                  padding: '12px 0', 
+                                  fontSize: '0.85rem', 
+                                  fontWeight: '800', 
+                                  borderRadius: '10px', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  gap: '6px', 
                                   cursor: 'pointer',
-                                  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
                                   opacity: ocrFile ? 1 : 0.6
                                 }}
                               >
@@ -2430,9 +2428,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   padding: '8px 0',
                                   fontSize: '0.72rem',
                                   fontWeight: '700',
-                                  color: '#00f0ff',
+                                  color: 'var(--brand)',
                                   background: 'transparent',
-                                  border: '1px solid rgba(0, 240, 255, 0.2)',
+                                  border: '1px solid var(--border-subtle)',
                                   borderRadius: '8px',
                                   cursor: 'pointer'
                                 }}
@@ -2445,32 +2443,32 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       )}
 
                       {ocrScanning && (
-                        <div style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid #f59e0b', height: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--brand)', height: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
                           <div style={{
                             position: 'absolute',
                             left: 0,
                             right: 0,
                             height: '2px',
-                            background: '#f59e0b',
-                            boxShadow: '0 0 8px #f59e0b',
+                            background: 'var(--brand)',
+                            boxShadow: '0 0 8px var(--brand)',
                             animation: 'scan-laser 2s infinite linear',
                             top: '50%'
                           }} />
-                          <div className="spinner-loader" style={{ width: '28px', height: '28px', borderColor: '#f59e0b', borderTopColor: 'transparent', marginBottom: '12px' }} />
-                          <span style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: 'bold' }}>Running AI OCR Scanner...</span>
-                          <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>Extracting cost metrics...</span>
+                          <div className="spinner-loader" style={{ width: '28px', height: '28px', borderColor: 'var(--brand)', borderTopColor: 'transparent', marginBottom: '12px' }} />
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 'bold' }}>Running AI OCR Scanner...</span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>Extracting cost metrics...</span>
                         </div>
                       )}
 
                       {ocrResult && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'inline-block', fontSize: '0.68rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', border: '1px solid currentColor', marginBottom: '8px' }}>
+                          <div style={{ background: 'var(--bg-elevated)', padding: '14px', borderRadius: '12px', border: '1px solid var(--accent-success)' }}>
+                            <span style={{ background: 'var(--accent-success-glow)', color: 'var(--accent-success)', display: 'inline-block', fontSize: '0.68rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', border: '1px solid currentColor', marginBottom: '8px' }}>
                               ✓ OCR Extraction Completed
                             </span>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
                               <div>
-                                <span style={{ color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Merchant Name:</span>
+                                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Merchant Name:</span>
                                 <input 
                                   type="text" 
                                   value={ocrResult.merchant} 
@@ -2478,17 +2476,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   style={{
                                     width: '100%',
                                     padding: '6px 10px',
-                                    background: '#070b14',
-                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    background: 'var(--bg-void)',
+                                    border: '1px solid var(--border-default)',
                                     borderRadius: '6px',
-                                    color: '#ffffff',
+                                    color: 'var(--text-primary)',
                                     fontSize: '0.75rem',
                                     fontWeight: '600'
                                   }}
                                 />
                               </div>
                               <div style={{ marginTop: '4px' }}>
-                                <span style={{ color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Extracted Amount (₹):</span>
+                                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Extracted Amount (₹):</span>
                                 <input 
                                   type="number" 
                                   value={ocrResult.amount} 
@@ -2496,10 +2494,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   style={{
                                     width: '100%',
                                     padding: '6px 10px',
-                                    background: '#070b14',
-                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    background: 'var(--bg-void)',
+                                    border: '1px solid var(--border-default)',
                                     borderRadius: '6px',
-                                    color: '#f59e0b',
+                                    color: 'var(--brand)',
                                     fontSize: '0.85rem',
                                     fontWeight: '800'
                                   }}
@@ -2512,10 +2510,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                       onClick={() => setOcrResult({ ...ocrResult, amount: amt })}
                                       style={{
                                         padding: '2px 6px',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: 'var(--bg-card)',
+                                        border: '1px solid var(--border-subtle)',
                                         borderRadius: '4px',
-                                        color: '#cbd5e1',
+                                        color: 'var(--text-secondary)',
                                         fontSize: '0.62rem',
                                         cursor: 'pointer'
                                       }}
@@ -2529,8 +2527,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                           </div>
 
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => { setOcrResult(null); setOcrFile(null); setOcrFileName(''); }} className="btn" style={{ flex: 1, fontSize: '0.8rem', padding: '10px 0', background: 'rgba(255,255,255,0.08)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: '800', cursor: 'pointer' }}>Retake</button>
-                            <button onClick={handleSaveExpense} className="btn" style={{ flex: 1, fontSize: '0.8rem', padding: '10px 0', fontWeight: '800', background: '#ffffff', color: '#070b14', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Save Receipt</button>
+                            <button onClick={() => { setOcrResult(null); setOcrFile(null); setOcrFileName(''); }} className="btn" style={{ flex: 1, fontSize: '0.8rem', padding: '10px 0', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontWeight: '800', cursor: 'pointer' }}>Retake</button>
+                            <button onClick={handleSaveExpense} className="btn btn-brand" style={{ flex: 1, fontSize: '0.8rem', padding: '10px 0', fontWeight: '800', borderRadius: '8px', cursor: 'pointer' }}>Save Receipt</button>
                           </div>
                         </div>
                       )}
@@ -2556,7 +2554,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         <div 
                           onClick={() => setActiveTab('trip')}
                           style={{ 
-                            background: 'rgba(15, 23, 42, 0.6)', 
+                            background: 'var(--bg-elevated)', 
                             padding: '16px', 
                             borderRadius: '16px', 
                             border: '1.5px solid #00f0ff', 
@@ -2586,25 +2584,25 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.92rem', fontWeight: '800' }}>
-                              <span style={{ color: '#ffffff' }}>{selectedTrip.origin}</span>
-                              <span style={{ color: '#00f0ff' }}>➔</span>
-                              <span style={{ color: '#ffffff' }}>{selectedTrip.destination}</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.origin}</span>
+                              <span style={{ color: 'var(--brand)' }}>➔</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.destination}</span>
                             </div>
-                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Total route: 1,420 km</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Total route: 1,420 km</span>
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '10px', fontSize: '0.75rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', fontSize: '0.75rem' }}>
                             <div>
-                              <span style={{ color: '#94a3b8' }}>Vehicle: </span>
-                              <strong style={{ color: '#ffffff' }}>{selectedTrip.truckNo}</strong>
+                              <span style={{ color: 'var(--text-muted)' }}>Vehicle: </span>
+                              <strong style={{ color: 'var(--text-primary)' }}>{selectedTrip.truckNo}</strong>
                             </div>
-                            <div style={{ textAlign: 'right', color: '#00f0ff', fontWeight: '800' }}>
+                            <div style={{ textAlign: 'right', color: 'var(--brand)', fontWeight: '800' }}>
                               Inspect Trip ➔
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ textAlign: 'center', padding: '30px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.15)', color: '#94a3b8', fontSize: '0.8rem' }}>
+                        <div style={{ textAlign: 'center', padding: '30px', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px dashed var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                           No active trips assigned.
                         </div>
                       )}
@@ -2633,89 +2631,88 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div style={{ position: 'relative' }}>
-                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#ff9f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#070b14', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)' }}>
+                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: '800', border: '1px solid var(--border-subtle)' }}>
                                 {activeDriver?.name?.split(' ').map(n=>n[0]).join('') || 'JD'}
                               </div>
-                              <span style={{ position: 'absolute', bottom: '0', right: '0', width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', border: '2px solid #070b14' }} />
+                              <span style={{ position: 'absolute', bottom: '0', right: '0', width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent-success)', border: '2px solid var(--bg-card)' }} />
                             </div>
                             <div>
-                              <h4 style={{ color: '#ffffff', fontSize: '0.92rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'John Doe'}</h4>
-                              <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>Active</span>
+                              <h4 style={{ color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'John Doe'}</h4>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--accent-success)', fontWeight: '700' }}>Active</span>
                             </div>
                           </div>
                           
                           <div style={{ position: 'relative' }}>
-                            <Bell size={18} style={{ color: '#94a3b8', cursor: 'pointer' }} onClick={() => setActiveTab('notifications')} />
+                            <Bell size={18} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setActiveTab('notifications')} />
                             {sqliteBuffer.length > 0 && (
-                              <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '7px', height: '7px', borderRadius: '50%', background: '#f59e0b' }} />
+                              <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent-warning)' }} />
                             )}
                           </div>
                         </div>
 
                         {/* Gold-colored active trip route description */}
                         <div>
-                          <span style={{ color: '#f59e0b', fontSize: '0.95rem', fontWeight: '900', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                            ACTIVE TRIP: <span style={{ color: '#ffffff' }}>{selectedTrip.origin} ➔ {selectedTrip.destination}</span>
+                          <span style={{ color: 'var(--accent-warning)', fontSize: '0.95rem', fontWeight: '900', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                            ACTIVE TRIP: <span style={{ color: 'var(--text-primary)' }}>{selectedTrip.origin} ➔ {selectedTrip.destination}</span>
                           </span>
                         </div>
 
                         {/* Glowing Map Card */}
                         <div style={{ 
-                          background: 'rgba(15, 23, 42, 0.7)', 
+                          background: 'var(--bg-elevated)', 
                           borderRadius: '18px', 
-                          border: '1.5px solid #00f0ff', 
-                          boxShadow: '0 0 12px rgba(0, 240, 255, 0.25)',
+                          border: '1.5px solid var(--brand)', 
+                          boxShadow: '0 0 12px var(--brand-glow)',
                           overflow: 'hidden',
-                          position: 'relative',
-                          backdropFilter: 'blur(10px)'
+                          position: 'relative'
                         }}>
-                          <div style={{ padding: '8px 12px', background: 'rgba(7, 11, 20, 0.4)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: '700' }}>
-                            <span style={{ color: '#94a3b8' }}>TRIP ID: {selectedTrip.id}</span>
-                            <span style={{ color: '#f59e0b' }}>STATUS: {selectedTrip.status === 'InTransit' ? 'IN TRANSIT' : selectedTrip.status.toUpperCase()}</span>
+                          <div style={{ padding: '8px 12px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: '700' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>TRIP ID: {selectedTrip.id}</span>
+                            <span style={{ color: 'var(--accent-warning)' }}>STATUS: {selectedTrip.status === 'InTransit' ? 'IN TRANSIT' : selectedTrip.status.toUpperCase()}</span>
                           </div>
 
                           {/* Map Graphics */}
-                          <svg width="100%" height="190" viewBox="0 0 280 190" style={{ background: '#070b14', display: 'block' }}>
+                          <svg width="100%" height="190" viewBox="0 0 280 190" style={{ background: 'var(--bg-void)', display: 'block' }}>
                             {/* Grid helper dots */}
                             <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-                              <circle cx="2" cy="2" r="0.8" fill="rgba(255,255,255,0.08)" />
+                              <circle cx="2" cy="2" r="0.8" fill="var(--border-subtle)" />
                             </pattern>
                             <rect width="100%" height="100%" fill="url(#dotGrid)" />
 
                             {/* Background map boundaries mock */}
-                            <path d="M 230,10 L 260,35 Q 240,90 220,105 L 180,95 Q 160,110 150,135 Z" fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="1" strokeDasharray="3 3" />
-                            <text x="240" y="55" fill="rgba(255,255,255,0.15)" fontSize="9" fontWeight="bold" letterSpacing="1">Nepal</text>
-                            <text x="140" y="110" fill="rgba(255,255,255,0.12)" fontSize="18" fontWeight="bold" letterSpacing="3">India</text>
+                            <path d="M 230,10 L 260,35 Q 240,90 220,105 L 180,95 Q 160,110 150,135 Z" fill="none" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="3 3" />
+                            <text x="240" y="55" fill="var(--text-muted)" fontSize="9" fontWeight="bold" letterSpacing="1" opacity="0.6">Nepal</text>
+                            <text x="140" y="110" fill="var(--text-muted)" fontSize="18" fontWeight="bold" letterSpacing="3" opacity="0.4">India</text>
 
                             {/* Glowing Neon Cyan Route Line */}
                             <path 
                               d="M 170,30 Q 140,55 120,70 T 105,125 T 100,175" 
                               fill="none" 
-                              stroke="rgba(0, 240, 255, 0.15)" 
+                              stroke="var(--brand-glow)" 
                               strokeWidth="7" 
                               strokeLinecap="round"
                             />
                             <path 
                               d="M 170,30 Q 140,55 120,70 T 105,125 T 100,175" 
                               fill="none" 
-                              stroke="#00f0ff" 
+                              stroke="var(--brand)" 
                               strokeWidth="3.5" 
                               strokeLinecap="round"
-                              style={{ filter: 'drop-shadow(0px 0px 5px #00f0ff)' }}
+                              style={{ filter: 'drop-shadow(0px 0px 5px var(--brand))' }}
                             />
 
                             {/* Waypoint markers */}
-                            <circle cx="170" cy="30" r="4.5" fill="#f59e0b" stroke="#070b14" strokeWidth="1.5" />
-                            <text x="180" y="34" fill="#cbd5e1" fontSize="9.5" fontWeight="bold">Delhi</text>
+                            <circle cx="170" cy="30" r="4.5" fill="#f59e0b" stroke="var(--bg-void)" strokeWidth="1.5" />
+                            <text x="180" y="34" fill="var(--text-primary)" fontSize="9.5" fontWeight="bold">Delhi</text>
 
-                            <circle cx="120" cy="70" r="3.5" fill="#94a3b8" />
-                            <text x="80" y="74" fill="#64748b" fontSize="8" fontWeight="600">Jaipur</text>
+                            <circle cx="120" cy="70" r="3.5" fill="var(--text-muted)" />
+                            <text x="80" y="74" fill="var(--text-muted)" fontSize="8" fontWeight="600">Jaipur</text>
 
-                            <circle cx="105" cy="125" r="3.5" fill="#94a3b8" />
-                            <text x="50" y="129" fill="#64748b" fontSize="8" fontWeight="600">Vadodara</text>
+                            <circle cx="105" cy="125" r="3.5" fill="var(--text-muted)" />
+                            <text x="50" y="129" fill="var(--text-muted)" fontSize="8" fontWeight="600">Vadodara</text>
 
-                            <circle cx="100" cy="175" r="4.5" fill="#10b981" stroke="#070b14" strokeWidth="1.5" />
-                            <text x="54" y="179" fill="#cbd5e1" fontSize="9.5" fontWeight="bold">Mumbai</text>
+                            <circle cx="100" cy="175" r="4.5" fill="#10b981" stroke="var(--bg-void)" strokeWidth="1.5" />
+                            <text x="54" y="179" fill="var(--text-primary)" fontSize="9.5" fontWeight="bold">Mumbai</text>
 
                             {/* Moving truck icon indicator */}
                             {selectedTrip.status === 'InTransit' && (
@@ -2730,44 +2727,43 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                           </svg>
 
                           {/* Translucent ETA banner overlay at bottom */}
-                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(7, 11, 20, 0.85)', padding: '6px 12px', fontSize: '0.72rem', color: '#ffffff', fontWeight: '700', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', padding: '6px 12px', fontSize: '0.72rem', color: 'var(--text-primary)', fontWeight: '700', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
                             ETA: {isTripDelivered ? 'Arrived at Destination' : `19 Oct, 09:30 AM (Remaining: ${remH}h ${remM}m)`}
                           </div>
                         </div>
 
                         {/* GPS Progress Card */}
                         <div style={{ 
-                          background: 'rgba(15, 23, 42, 0.7)', 
+                          background: 'var(--bg-elevated)', 
                           borderRadius: '18px', 
-                          border: '1.5px solid #00f0ff', 
-                          boxShadow: '0 0 12px rgba(0, 240, 255, 0.25)',
+                          border: '1.5px solid var(--brand)', 
+                          boxShadow: '0 0 12px var(--brand-glow)',
                           padding: '12px 14px',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '8px',
-                          backdropFilter: 'blur(10px)'
+                          gap: '8px'
                         }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: '800' }}>
-                            <span style={{ color: '#ffffff' }}>Delhi <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: '500' }}>(DEP: 17 Oct, 22:15)</span></span>
-                            <span style={{ color: '#00f0ff', fontSize: '0.75rem' }}>➔</span>
-                            <span style={{ color: '#ffffff' }}>Mumbai <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: '500' }}>(DEST)</span></span>
+                            <span style={{ color: 'var(--text-primary)' }}>Delhi <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '500' }}>(DEP: 17 Oct, 22:15)</span></span>
+                            <span style={{ color: 'var(--brand)', fontSize: '0.75rem' }}>➔</span>
+                            <span style={{ color: 'var(--text-primary)' }}>Mumbai <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '500' }}>(DEST)</span></span>
                           </div>
 
                           <div>
-                            <span style={{ fontSize: '0.68rem', color: '#cbd5e1', fontWeight: '800', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>GPS progress</span>
-                            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ width: `${dynamicProgressPct}%`, height: '100%', background: '#00f0ff', boxShadow: '0 0 8px #00f0ff', borderRadius: '4px', transition: 'width 0.5s ease-in-out' }} />
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: '800', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>GPS progress</span>
+                            <div style={{ width: '100%', height: '8px', background: 'var(--border-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${dynamicProgressPct}%`, height: '100%', background: 'var(--brand)', boxShadow: '0 0 8px var(--brand)', borderRadius: '4px', transition: 'width 0.5s ease-in-out' }} />
                             </div>
                           </div>
 
-                          <div style={{ fontSize: '0.7rem', color: '#cbd5e1', fontWeight: '700' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-primary)', fontWeight: '700' }}>
                             {dynamicCoveredKm.toLocaleString()} km covered / {totalTripKm.toLocaleString()} km ({dynamicProgressPct}%) | Next Stop: Vadodara (210 km)
                           </div>
                         </div>
 
                         {/* ePOD CHECKLIST PANEL */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', color: '#cbd5e1', letterSpacing: '0.5px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
                             ePOD CHECKLIST
                           </span>
 
@@ -2779,10 +2775,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 if (!hasInspectionDone) setCurrentScreen('odoStart');
                               }}
                               style={{ 
-                                background: 'rgba(15, 23, 42, 0.6)', 
+                                background: 'var(--bg-elevated)', 
                                 padding: '12px', 
                                 borderRadius: '14px', 
-                                border: '1px solid rgba(255,255,255,0.06)', 
+                                border: '1px solid var(--border-subtle)', 
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
@@ -2792,17 +2788,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 {/* Completed Checkmark Icon or empty box */}
                                 {hasInspectionDone ? (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'var(--accent-success-glow)', border: '1.5px solid var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-success)', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
                                 ) : (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid rgba(255,255,255,0.2)' }} />
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid var(--border-default)' }} />
                                 )}
                                 <div>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasInspectionDone ? '#10b981' : '#ffffff', display: 'block' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasInspectionDone ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
                                     1. Vehicle Inspection {hasInspectionDone && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
-                              <Truck size={15} style={{ color: hasInspectionDone ? '#10b981' : '#94a3b8' }} />
+                              <Truck size={15} style={{ color: hasInspectionDone ? 'var(--accent-success)' : 'var(--text-muted)' }} />
                             </div>
 
                             {/* Item 2: Client Signature (ePOD) */}
@@ -2818,10 +2814,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 }
                               }}
                               style={{ 
-                                background: 'rgba(15, 23, 42, 0.6)', 
+                                background: 'var(--bg-elevated)', 
                                 padding: '12px', 
                                 borderRadius: '14px', 
-                                border: '1px solid rgba(255,255,255,0.06)', 
+                                border: '1px solid var(--border-subtle)', 
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
@@ -2830,17 +2826,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 {hasSigned ? (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'var(--accent-success-glow)', border: '1.5px solid var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-success)', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
                                 ) : (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid rgba(255,255,255,0.2)' }} />
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid var(--border-default)' }} />
                                 )}
                                 <div>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasSigned ? '#10b981' : '#ffffff', display: 'block' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasSigned ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
                                     2. Client Signature (Delhi) {hasSigned && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
-                              <PenTool size={15} style={{ color: hasSigned ? '#10b981' : '#94a3b8' }} />
+                              <PenTool size={15} style={{ color: hasSigned ? 'var(--accent-success)' : 'var(--text-muted)' }} />
                             </div>
 
                             {/* Item 3: Upload Waybill Photo */}
@@ -2853,10 +2849,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 if (!hasWaybillUploaded) setCurrentScreen('waybill');
                               }}
                               style={{ 
-                                background: 'rgba(15, 23, 42, 0.6)', 
+                                background: 'var(--bg-elevated)', 
                                 padding: '12px', 
                                 borderRadius: '14px', 
-                                border: '1px solid rgba(255,255,255,0.06)', 
+                                border: '1px solid var(--border-subtle)', 
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
@@ -2865,17 +2861,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 {hasWaybillUploaded ? (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'var(--accent-success-glow)', border: '1.5px solid var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-success)', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
                                 ) : (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid rgba(255,255,255,0.2)' }} />
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid var(--border-default)' }} />
                                 )}
                                 <div>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasWaybillUploaded ? '#10b981' : '#ffffff', display: 'block' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasWaybillUploaded ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
                                     3. Upload Waybill Photo {hasWaybillUploaded && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
-                              <Camera size={15} style={{ color: hasWaybillUploaded ? '#10b981' : '#94a3b8' }} />
+                              <Camera size={15} style={{ color: hasWaybillUploaded ? 'var(--accent-success)' : 'var(--text-muted)' }} />
                             </div>
 
                             {/* Item 4: Cargo Verification */}
@@ -2888,10 +2884,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 if (!hasCargoVerified) setCurrentScreen('cargo');
                               }}
                               style={{ 
-                                background: 'rgba(15, 23, 42, 0.6)', 
+                                background: 'var(--bg-elevated)', 
                                 padding: '12px', 
                                 borderRadius: '14px', 
-                                border: '1px solid rgba(255,255,255,0.06)', 
+                                border: '1px solid var(--border-subtle)', 
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
@@ -2900,17 +2896,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 {hasCargoVerified ? (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'var(--accent-success-glow)', border: '1.5px solid var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-success)', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
                                 ) : (
-                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid rgba(255,255,255,0.2)' }} />
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid var(--border-default)' }} />
                                 )}
                                 <div>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasCargoVerified ? '#10b981' : '#ffffff', display: 'block' }}>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasCargoVerified ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
                                     4. Cargo Verification (MUM) {hasCargoVerified && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
-                              <Package size={15} style={{ color: hasCargoVerified ? '#10b981' : '#94a3b8' }} />
+                              <Package size={15} style={{ color: hasCargoVerified ? 'var(--accent-success)' : 'var(--text-muted)' }} />
                             </div>
 
                           </div>
@@ -2920,18 +2916,14 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         {isChecklistComplete && !isTripDelivered && (
                           <button
                             onClick={() => setCurrentScreen('odoEnd')}
-                            className="btn animate-pulse"
+                            className="btn btn-danger animate-pulse"
                             style={{
                               width: '100%',
                               padding: '12px 0',
                               fontSize: '0.85rem',
                               fontWeight: '800',
-                              background: '#ef4444',
-                              color: '#ffffff',
-                              border: 'none',
                               borderRadius: '10px',
                               cursor: 'pointer',
-                              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
                               marginTop: '2px'
                             }}
                           >
@@ -2942,21 +2934,18 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         {/* Saffron/Gold action button */}
                         <button 
                           onClick={() => setCurrentScreen('expense')}
+                          className="btn btn-warning"
                           style={{
                             width: '100%',
                             padding: '14px 0',
                             fontSize: '0.85rem',
                             fontWeight: '800',
-                            background: 'linear-gradient(135deg, #f59e0b 0%, #e08b00 100%)',
-                            color: '#070b14',
-                            border: 'none',
                             borderRadius: '12px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '6px',
-                            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)',
                             marginTop: '4px'
                           }}
                         >
@@ -2970,26 +2959,26 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {/* TAB 3: NOTIFICATIONS (Telemetry Timelines / sqlite buffers logs) */}
                   {activeTab === 'notifications' && (
                     <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: '#cbd5e1' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
                         System Notifications
                       </span>
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '420px' }}>
                         {sqliteBuffer.map(item => (
-                          <div key={item.id} style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '0.72rem' }}>
-                            <strong style={{ color: '#f59e0b', display: 'block', marginBottom: '2px' }}>PENDING OFFLINE TRANSACTION</strong>
-                            <span style={{ color: '#fff' }}>{getReadableBufferAction(item)}</span>
+                          <div key={item.id} style={{ background: 'var(--accent-warning-glow)', padding: '10px', borderRadius: '10px', border: '1px solid var(--accent-warning)', fontSize: '0.72rem' }}>
+                            <strong style={{ color: 'var(--accent-warning)', display: 'block', marginBottom: '2px' }}>PENDING OFFLINE TRANSACTION</strong>
+                            <span style={{ color: 'var(--text-primary)' }}>{getReadableBufferAction(item)}</span>
                           </div>
                         ))}
                         
-                        <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.72rem' }}>
-                          <strong style={{ color: '#10b981', display: 'block', marginBottom: '2px' }}>GPS PING SYNCED</strong>
-                          <span style={{ color: '#fff' }}>Odometer tracker ping successfully uploaded.</span>
+                        <div style={{ background: 'var(--accent-success-glow)', padding: '10px', borderRadius: '10px', border: '1px solid var(--accent-success)', fontSize: '0.72rem' }}>
+                          <strong style={{ color: 'var(--accent-success)', display: 'block', marginBottom: '2px' }}>GPS PING SYNCED</strong>
+                          <span style={{ color: 'var(--text-primary)' }}>Odometer tracker ping successfully uploaded.</span>
                         </div>
 
-                        <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '10px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.72rem' }}>
-                          <strong style={{ color: '#cbd5e1', display: 'block', marginBottom: '2px' }}>TRIP ASSIGNED</strong>
-                          <span style={{ color: '#fff' }}>Trip ID {selectedTrip?.id} has been added to your cockpit.</span>
+                        <div style={{ background: 'var(--bg-elevated)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-subtle)', fontSize: '0.72rem' }}>
+                          <strong style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>TRIP ASSIGNED</strong>
+                          <span style={{ color: 'var(--text-primary)' }}>Trip ID {selectedTrip?.id} has been added to your cockpit.</span>
                         </div>
                       </div>
                     </div>
@@ -2998,21 +2987,21 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {/* TAB 4: PROFILE (Duty status toggle & profile info) */}
                   {activeTab === 'profile' && (
                     <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: '#cbd5e1' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
                         Driver Profile
                       </span>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#00f0ff', color: '#070b14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', fontWeight: 'bold' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--brand)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', fontWeight: 'bold' }}>
                           {activeDriver?.name?.split(' ').map(n=>n[0]).join('') || 'JD'}
                         </div>
-                        <h4 style={{ color: '#ffffff', fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'John Doe'}</h4>
-                        <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>ID: {activeDriver?.id || 'DRV-01'}</span>
+                        <h4 style={{ color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>{activeDriver?.name || 'John Doe'}</h4>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {activeDriver?.id || 'DRV-01'}</span>
                       </div>
 
                       {/* Duty switches inside profiles tab */}
-                      <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: '700' }}>Active Duty GPS Tracking</span>
+                      <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>Active Duty GPS Tracking</span>
                         <button 
                           onClick={() => setIsOnDuty(!isOnDuty)} 
                           className="btn" 
@@ -3020,7 +3009,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             fontSize: '0.72rem', 
                             padding: '4px 10px', 
                             fontWeight: '800', 
-                            background: isOnDuty ? '#10b981' : '#f43f5e', 
+                            background: isOnDuty ? 'var(--accent-success)' : 'var(--accent-danger)', 
                             color: '#ffffff',
                             border: 'none',
                             borderRadius: '6px',
@@ -3032,8 +3021,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       </div>
 
                       {/* Offline controls toggle inside profile tab */}
-                      <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: '700' }}>Signal Connection Mode</span>
+                      <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>Signal Connection Mode</span>
                         <button 
                           onClick={() => setIsOnline(!isOnline)} 
                           className="btn" 
@@ -3041,7 +3030,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             fontSize: '0.72rem', 
                             padding: '4px 10px', 
                             fontWeight: '800', 
-                            background: isOnline ? '#10b981' : '#f59e0b', 
+                            background: isOnline ? 'var(--accent-success)' : 'var(--accent-warning)', 
                             color: '#ffffff',
                             border: 'none',
                             borderRadius: '6px',
@@ -3062,9 +3051,9 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         style={{ 
                           width: '100%', 
                           padding: '12px 0', 
-                          background: 'rgba(244, 63, 94, 0.1)', 
-                          color: '#f43f5e', 
-                          border: '1px solid rgba(244, 63, 94, 0.2)', 
+                          background: 'var(--accent-danger-glow)', 
+                          color: 'var(--accent-danger)', 
+                          border: '1px solid var(--accent-danger)', 
                           borderRadius: '12px', 
                           fontWeight: '800', 
                           cursor: 'pointer',
@@ -3080,8 +3069,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   {/* BOTTOM NAVIGATION TAB BAR */}
                   <div style={{
                     height: '56px',
-                    background: '#0d1527',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    background: 'var(--bg-secondary)',
+                    borderTop: '1px solid var(--border-subtle)',
                     display: 'flex',
                     justifyContent: 'space-around',
                     alignItems: 'center',
@@ -3094,7 +3083,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       style={{ 
                         background: 'none', 
                         border: 'none', 
-                        color: activeTab === 'home' ? '#00f0ff' : '#94a3b8', 
+                        color: activeTab === 'home' ? 'var(--brand)' : 'var(--text-muted)', 
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'center', 
@@ -3105,7 +3094,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     >
                       <Home size={18} />
                       {activeTab === 'home' && (
-                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: '#00f0ff', borderRadius: '1.5px' }} />
+                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: 'var(--brand)', borderRadius: '1.5px' }} />
                       )}
                     </button>
 
@@ -3115,7 +3104,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       style={{ 
                         background: 'none', 
                         border: 'none', 
-                        color: activeTab === 'trip' ? '#00f0ff' : '#94a3b8', 
+                        color: activeTab === 'trip' ? 'var(--brand)' : 'var(--text-muted)', 
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'center', 
@@ -3126,7 +3115,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     >
                       <Truck size={18} />
                       {activeTab === 'trip' && (
-                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: '#00f0ff', borderRadius: '1.5px' }} />
+                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: 'var(--brand)', borderRadius: '1.5px' }} />
                       )}
                     </button>
 
@@ -3136,7 +3125,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       style={{ 
                         background: 'none', 
                         border: 'none', 
-                        color: activeTab === 'notifications' ? '#00f0ff' : '#94a3b8', 
+                        color: activeTab === 'notifications' ? 'var(--brand)' : 'var(--text-muted)', 
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'center', 
@@ -3147,7 +3136,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     >
                       <Bell size={18} />
                       {activeTab === 'notifications' && (
-                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: '#00f0ff', borderRadius: '1.5px' }} />
+                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: 'var(--brand)', borderRadius: '1.5px' }} />
                       )}
                     </button>
 
@@ -3157,7 +3146,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                       style={{ 
                         background: 'none', 
                         border: 'none', 
-                        color: activeTab === 'profile' ? '#00f0ff' : '#94a3b8', 
+                        color: activeTab === 'profile' ? 'var(--brand)' : 'var(--text-muted)', 
                         display: 'flex', 
                         flexDirection: 'column', 
                         alignItems: 'center', 
@@ -3168,7 +3157,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     >
                       <User size={18} />
                       {activeTab === 'profile' && (
-                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: '#00f0ff', borderRadius: '1.5px' }} />
+                        <div style={{ position: 'absolute', bottom: '-8px', width: '20px', height: '2.5px', background: 'var(--brand)', borderRadius: '1.5px' }} />
                       )}
                     </button>
                   </div>
@@ -3178,7 +3167,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
               {/* HOME INDICATOR OVERLAY */}
               <div style={{
                 height: '14px',
-                background: '#070b14',
+                background: 'var(--bg-void)',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',

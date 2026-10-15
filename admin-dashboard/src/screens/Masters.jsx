@@ -36,7 +36,7 @@ export default function Masters({
   ];
 
   return (
-    <div className="animate-fade-in" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="animate-fade-in responsive-page-pad" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* Toast */}
       {toast && (
@@ -62,7 +62,7 @@ export default function Masters({
       </div>
 
       {/* Tab Nav */}
-      <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
         {TABS.map(tab => (
           <button key={tab.id}
             className={`toggle-btn ${activeTab === tab.id ? 'active' : ''}`}
@@ -139,7 +139,7 @@ function OrgTab({ branches, setBranches, lrs, showToast }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '24px', alignItems: 'start' }}>
+    <div className="responsive-grid-split">
 
       {/* Branch tree */}
       <div className="glass-panel" style={{ padding: '22px' }}>
@@ -149,7 +149,7 @@ function OrgTab({ branches, setBranches, lrs, showToast }) {
         </div>
 
         {/* HO Root */}
-        <div style={{ padding: '12px 14px', background: 'var(--brand-glow)', border: '1px solid hsla(35,95%,55%,0.2)', borderRadius: 'var(--radius-md)', fontWeight: '700', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+        <div style={{ padding: '12px 14px', background: 'var(--brand-glow)', border: '1px solid hsla(205, 90%, 55%,0.2)', borderRadius: 'var(--radius-md)', fontWeight: '700', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
           <Building2 size={15} style={{ color: 'var(--brand)' }} />
           <div>
             <p>Temp India (HO)</p>
@@ -169,13 +169,13 @@ function OrgTab({ branches, setBranches, lrs, showToast }) {
               <div key={branch.id} onClick={() => { setSelectedId(branch.id); setEditMode(false); }}
                 style={{
                   padding: '10px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                  background: sel ? 'hsla(35,95%,55%,0.08)' : 'transparent',
-                  border: `1px solid ${sel ? 'hsla(35,95%,55%,0.3)' : 'transparent'}`,
+                  background: sel ? 'hsla(205, 90%, 55%,0.08)' : 'transparent',
+                  border: `1px solid ${sel ? 'hsla(205, 90%, 55%,0.3)' : 'transparent'}`,
                   transition: 'var(--t-fast)'
                 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <MapPin size={13} style={{ color: typeColor }} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: sel ? '700' : '400', color: sel ? 'var(--brand-light)' : 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: sel ? '700' : '500', color: sel ? 'var(--brand)' : 'var(--text-primary)' }}>
                     {branch.name}
                   </span>
                   <span style={{ marginLeft: 'auto', fontSize: '0.65rem', background: `${typeColor}20`, color: typeColor, padding: '2px 6px', borderRadius: '8px', fontWeight: '600' }}>
@@ -224,27 +224,27 @@ function OrgTab({ branches, setBranches, lrs, showToast }) {
               {[
                 { label: 'GSTIN', value: selectedBranch.gstin, editable: false },
               ].map(row => (
-                <div key={row.label} style={{ padding: '12px 14px', background: 'hsla(222,22%,12%,0.6)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                  <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>{row.label}</p>
-                  <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-secondary)' }}>{row.value}</p>
+                <div key={row.label} style={{ padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                  <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px', fontWeight: '600' }}>{row.label}</p>
+                  <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: '500' }}>{row.value}</p>
                 </div>
               ))}
 
               {/* Address — editable */}
-              <div style={{ padding: '12px 14px', background: editMode ? 'hsla(35,95%,55%,0.04)' : 'hsla(222,22%,12%,0.6)', borderRadius: 'var(--radius-md)', border: `1px solid ${editMode ? 'hsla(35,95%,55%,0.25)' : 'var(--border-subtle)'}` }}>
-                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Address</p>
+              <div style={{ padding: '12px 14px', background: editMode ? 'hsla(205, 90%, 55%,0.04)' : 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: `1px solid ${editMode ? 'hsla(205, 90%, 55%,0.25)' : 'var(--border-subtle)'}` }}>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px', fontWeight: '600' }}>Address</p>
                 {editMode
                   ? <textarea rows="2" className="input-premium" style={{ resize: 'none', fontSize: '0.82rem', width: '100%' }} value={editAddress} onChange={e => setEditAddress(e.target.value)} />
-                  : <p style={{ color: 'var(--text-secondary)' }}>{selectedBranch.address}</p>
+                  : <p style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{selectedBranch.address}</p>
                 }
               </div>
 
               {/* Lanes served — editable */}
-              <div style={{ padding: '12px 14px', background: editMode ? 'hsla(35,95%,55%,0.04)' : 'hsla(222,22%,12%,0.6)', borderRadius: 'var(--radius-md)', border: `1px solid ${editMode ? 'hsla(35,95%,55%,0.25)' : 'var(--border-subtle)'}` }}>
-                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Lanes Served</p>
+              <div style={{ padding: '12px 14px', background: editMode ? 'hsla(205, 90%, 55%,0.04)' : 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: `1px solid ${editMode ? 'hsla(205, 90%, 55%,0.25)' : 'var(--border-subtle)'}` }}>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px', fontWeight: '600' }}>Lanes Served</p>
                 {editMode
                   ? <input className="input-premium" style={{ fontSize: '0.82rem', width: '100%' }} value={editLanes} onChange={e => setEditLanes(e.target.value)} />
-                  : <p style={{ color: 'var(--text-secondary)' }}>{selectedBranch.lanes || 'Delhi Corridor ↔ Mumbai Hub ↔ Bangalore Corridor'}</p>
+                  : <p style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{selectedBranch.lanes || 'Delhi Corridor ↔ Mumbai Hub ↔ Bangalore Corridor'}</p>
                 }
               </div>
 
@@ -254,9 +254,9 @@ function OrgTab({ branches, setBranches, lrs, showToast }) {
                   { label: 'LRs Booked', value: lrs.filter(l => l.bookingBranch === selectedBranch.id).length },
                   { label: 'Delivered', value: lrs.filter(l => l.bookingBranch === selectedBranch.id && l.status === 'Delivered').length },
                 ].map(kpi => (
-                  <div key={kpi.label} style={{ padding: '12px', background: 'var(--brand-glow)', border: '1px solid hsla(35,95%,55%,0.15)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
-                    <p style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--brand-light)', fontFamily: 'var(--font-display)' }}>{kpi.value}</p>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kpi.label}</p>
+                  <div key={kpi.label} style={{ padding: '12px', background: 'var(--brand-glow)', border: '1px solid hsla(205, 90%, 55%,0.15)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+                    <p style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--brand)', fontFamily: 'var(--font-display)' }}>{kpi.value}</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>{kpi.label}</p>
                   </div>
                 ))}
               </div>
@@ -280,48 +280,96 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
   const [partyName, setPartyName]       = useState('');
   const [partyType, setPartyType]       = useState('client');
   const [partyGstin, setPartyGstin]     = useState('');
+  const [partyPan, setPartyPan]         = useState('');
   const [partyLimit, setPartyLimit]     = useState('');
   const [partyDays, setPartyDays]       = useState('');
   const [partyAddress, setPartyAddress] = useState('');
   const [partyPhone, setPartyPhone]     = useState('');
   const [partyEmail, setPartyEmail]     = useState('');
   const [partyPassword, setPartyPassword] = useState('');
-  const [search, setSearch]             = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  
+  // Broker specific states
+  const [brokerType, setBrokerType]                 = useState('Booking Agent');
+  const [commissionRate, setCommissionRate]         = useState('5.0');
+  const [tdsSection, setTdsSection]                 = useState('194C (2%)');
+  const [isSubBroker, setIsSubBroker]               = useState(false);
+  const [parentBrokerId, setParentBrokerId]         = useState('');
+  const [subSplitPct, setSubSplitPct]               = useState('30');
+
+  const [search, setSearch]                         = useState('');
+  const [activeFilter, setActiveFilter]             = useState('all'); // 'all' | 'client' | 'consignee' | 'broker'
+  const [deleteConfirm, setDeleteConfirm]           = useState(null);
 
   // Edit state
-  const [editingPartyId, setEditingPartyId] = useState(null);
-  const [editForm, setEditForm]             = useState({});
+  const [editingPartyId, setEditingPartyId]         = useState(null);
+  const [editForm, setEditForm]                     = useState({});
+
+  const existingBrokers = useMemo(() => parties.filter(p => p.type === 'broker'), [parties]);
 
   const filtered = useMemo(() =>
-    parties.filter(p =>
-      p.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.type?.toLowerCase().includes(search.toLowerCase()) ||
-      p.gstin?.toLowerCase().includes(search.toLowerCase())
-    ), [parties, search]);
+    parties.filter(p => {
+      const matchesSearch = 
+        p.name?.toLowerCase().includes(search.toLowerCase()) ||
+        p.type?.toLowerCase().includes(search.toLowerCase()) ||
+        p.gstin?.toLowerCase().includes(search.toLowerCase()) ||
+        p.pan?.toLowerCase().includes(search.toLowerCase()) ||
+        p.brokerType?.toLowerCase().includes(search.toLowerCase());
+      
+      const matchesFilter = activeFilter === 'all' || p.type === activeFilter;
+      return matchesSearch && matchesFilter;
+    }), [parties, search, activeFilter]);
+
+  const clientCount = parties.filter(p => p.type === 'client').length;
+  const consigneeCount = parties.filter(p => p.type === 'consignee').length;
+  const brokerCount = parties.filter(p => p.type === 'broker').length;
 
   const handleAddParty = (e) => {
     e.preventDefault();
     if (!partyName) return;
-    api.createParty({
-      id: `PAR-0${parties.length + 1}`,
-      name: partyName, type: partyType, gstin: partyGstin || null,
-      credit_limit: partyLimit ? Number(partyLimit) : null,
-      credit_days: partyDays ? Number(partyDays) : null,
-      address: partyAddress || null,
+
+    const payload = {
+      id: partyType === 'broker' ? `BRK-0${brokerCount + 1}` : `PAR-0${parties.length + 1}`,
+      name: partyName, 
+      type: partyType, 
+      gstin: partyGstin || null,
+      pan: partyPan || null,
       phone: partyPhone || '',
+      address: partyAddress || null,
+      credit_limit: partyType === 'client' && partyLimit ? Number(partyLimit) : null,
+      credit_days: partyType === 'client' && partyDays ? Number(partyDays) : null,
       email: partyType === 'client' && partyEmail ? partyEmail.trim() : null,
-      password: partyType === 'client' && partyPassword ? partyPassword : null
-    }).then(saved => {
+      password: partyType === 'client' && partyPassword ? partyPassword : null,
+      // Broker fields
+      commission_rate: partyType === 'broker' ? Number(commissionRate || 5) : null,
+      broker_type: partyType === 'broker' ? brokerType : null,
+      parent_broker_id: partyType === 'broker' && isSubBroker && parentBrokerId ? parentBrokerId : null,
+      sub_split_pct: partyType === 'broker' && isSubBroker ? Number(subSplitPct || 30) : 30,
+      tds_section: partyType === 'broker' ? tdsSection : null,
+      tds_rate: partyType === 'broker' ? (tdsSection.includes('5%') ? 5 : (tdsSection.includes('2%') ? 2 : 0)) : null
+    };
+
+    api.createParty(payload).then(saved => {
       setParties([{
-        id: saved.id, name: saved.name, type: saved.type, gstin: saved.gstin,
+        id: saved.id, 
+        name: saved.name, 
+        type: saved.type, 
+        gstin: saved.gstin,
+        pan: saved.pan || partyPan,
         creditLimit: saved.creditLimit !== undefined ? saved.creditLimit : (saved.credit_limit ? Number(saved.credit_limit) : null),
         creditDays: saved.creditDays !== undefined ? saved.creditDays : (saved.credit_days ? Number(saved.credit_days) : null),
-        address: saved.address, phone: partyPhone
+        address: saved.address, 
+        phone: saved.phone || partyPhone,
+        commissionRate: saved.commissionRate !== undefined ? saved.commissionRate : Number(commissionRate || 5),
+        brokerType: saved.brokerType || brokerType,
+        parentBrokerId: saved.parentBrokerId || (isSubBroker ? parentBrokerId : null),
+        subSplitPct: saved.subSplitPct !== undefined ? saved.subSplitPct : Number(subSplitPct || 30),
+        tdsSection: saved.tdsSection || tdsSection,
+        tdsRate: saved.tdsRate !== undefined ? saved.tdsRate : (tdsSection.includes('5%') ? 5 : 2)
       }, ...parties]);
-      showToast(`Party "${partyName}" registered successfully!`);
-      setPartyName(''); setPartyGstin(''); setPartyLimit(''); setPartyDays(''); setPartyAddress(''); setPartyPhone('');
-      setPartyEmail(''); setPartyPassword('');
+      showToast(`${partyType === 'broker' ? 'Broker / Agent' : 'Party'} "${partyName}" registered successfully!`);
+      setPartyName(''); setPartyGstin(''); setPartyPan(''); setPartyLimit(''); setPartyDays(''); 
+      setPartyAddress(''); setPartyPhone(''); setPartyEmail(''); setPartyPassword('');
+      setIsSubBroker(false); setParentBrokerId(''); setCommissionRate('5.0');
     }).catch(err => showToast(`Failed: ${err.message}`, 'error'));
   };
 
@@ -331,10 +379,17 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
       name: p.name || '',
       type: p.type || 'client',
       gstin: p.gstin || '',
+      pan: p.pan || '',
       phone: p.phone || '',
       creditLimit: p.creditLimit !== undefined && p.creditLimit !== null ? String(p.creditLimit) : (p.credit_limit ? String(p.credit_limit) : ''),
       creditDays: p.creditDays !== undefined && p.creditDays !== null ? String(p.creditDays) : (p.credit_days ? String(p.credit_days) : ''),
-      address: p.address || ''
+      address: p.address || '',
+      commissionRate: p.commissionRate !== undefined && p.commissionRate !== null ? String(p.commissionRate) : (p.commission_rate ? String(p.commission_rate) : '5.0'),
+      brokerType: p.brokerType || p.broker_type || 'Booking Agent',
+      isSubBroker: Boolean(p.parentBrokerId || p.parent_broker_id),
+      parentBrokerId: p.parentBrokerId || p.parent_broker_id || '',
+      subSplitPct: p.subSplitPct !== undefined && p.subSplitPct !== null ? String(p.subSplitPct) : (p.sub_split_pct ? String(p.sub_split_pct) : '30'),
+      tdsSection: p.tdsSection || p.tds_section || '194C (2%)'
     });
   };
 
@@ -347,10 +402,17 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
       name: editForm.name,
       type: editForm.type,
       gstin: editForm.gstin || null,
+      pan: editForm.pan || null,
       phone: editForm.phone || '',
       credit_limit: editForm.creditLimit ? Number(editForm.creditLimit) : null,
       credit_days: editForm.creditDays ? Number(editForm.creditDays) : null,
-      address: editForm.address || null
+      address: editForm.address || null,
+      commission_rate: editForm.type === 'broker' ? Number(editForm.commissionRate || 5) : null,
+      broker_type: editForm.type === 'broker' ? editForm.brokerType : null,
+      parent_broker_id: editForm.type === 'broker' && editForm.isSubBroker ? editForm.parentBrokerId || null : null,
+      sub_split_pct: editForm.type === 'broker' && editForm.isSubBroker ? Number(editForm.subSplitPct || 30) : 30,
+      tds_section: editForm.type === 'broker' ? editForm.tdsSection : null,
+      tds_rate: editForm.type === 'broker' ? (editForm.tdsSection?.includes('5%') ? 5 : 2) : null
     };
 
     api.updateParty(id, updatedData).then(updated => {
@@ -359,10 +421,16 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
         name: updated.name || editForm.name,
         type: updated.type || editForm.type,
         gstin: updated.gstin !== undefined ? updated.gstin : (editForm.gstin || null),
+        pan: updated.pan !== undefined ? updated.pan : (editForm.pan || null),
         phone: updated.phone || editForm.phone || '',
         creditLimit: updated.creditLimit !== undefined ? updated.creditLimit : (editForm.creditLimit ? Number(editForm.creditLimit) : null),
         creditDays: updated.creditDays !== undefined ? updated.creditDays : (editForm.creditDays ? Number(editForm.creditDays) : null),
-        address: updated.address !== undefined ? updated.address : (editForm.address || null)
+        address: updated.address !== undefined ? updated.address : (editForm.address || null),
+        commissionRate: updated.commissionRate !== undefined ? updated.commissionRate : (editForm.commissionRate ? Number(editForm.commissionRate) : null),
+        brokerType: updated.brokerType || editForm.brokerType,
+        parentBrokerId: updated.parentBrokerId !== undefined ? updated.parentBrokerId : (editForm.isSubBroker ? editForm.parentBrokerId : null),
+        subSplitPct: updated.subSplitPct !== undefined ? updated.subSplitPct : Number(editForm.subSplitPct || 30),
+        tdsSection: updated.tdsSection || editForm.tdsSection
       } : p));
       showToast(`Party "${editForm.name}" updated successfully!`);
       setEditingPartyId(null);
@@ -378,36 +446,169 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '24px', alignItems: 'start' }}>
+    <div className="responsive-grid-split">
 
-      {/* Add Party Form */}
+      {/* Add Party / Broker Form */}
       <div className="glass-panel" style={{ padding: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <PlusCircle size={17} style={{ color: 'var(--brand)' }} />
-          <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>Register Consignor / Consignee</h3>
+          <PlusCircle size={17} style={{ color: partyType === 'broker' ? 'var(--accent-warning)' : 'var(--brand)' }} />
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>
+              {partyType === 'broker' ? 'Register Booking Agent / Broker' : 'Register Consignor / Consignee'}
+            </h3>
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {partyType === 'broker' 
+                ? 'Commission cards, TDS compliance & Sub-broker split hierarchy' 
+                : 'Commercial parties with GSTIN and credit verification'}
+            </p>
+          </div>
         </div>
+
         <form onSubmit={handleAddParty} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
-            <label className="label-premium">Party Name *</label>
-            <input type="text" required placeholder="e.g. Tata Steel Ltd" className="input-premium" value={partyName} onChange={e => setPartyName(e.target.value)} />
+            <label className="label-premium">
+              {partyType === 'broker' ? 'Broker / Agency Name *' : 'Party Name *'}
+            </label>
+            <input 
+              type="text" 
+              required 
+              placeholder={partyType === 'broker' ? "e.g. National Booking Agency" : "e.g. Tata Steel Ltd"} 
+              className="input-premium" 
+              value={partyName} 
+              onChange={e => setPartyName(e.target.value)} 
+            />
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <label className="label-premium">Party Type</label>
-              <select className="input-premium" value={partyType} onChange={e => setPartyType(e.target.value)}>
+              <label className="label-premium">Party Classification</label>
+              <select 
+                className="input-premium" 
+                value={partyType} 
+                onChange={e => setPartyType(e.target.value)}
+                style={{ fontWeight: '600', color: partyType === 'broker' ? 'var(--accent-warning)' : 'var(--text-primary)' }}
+              >
                 <option value="client">Consignor (Client)</option>
                 <option value="consignee">Consignee</option>
+                <option value="broker">⭐ Agent / Broker</option>
               </select>
             </div>
             <div>
-              <label className="label-premium">GSTIN</label>
+              <label className="label-premium">GSTIN (Optional)</label>
               <input type="text" placeholder="27AAAAA1111A1Z1" className="input-premium" value={partyGstin} onChange={e => setPartyGstin(e.target.value)} />
             </div>
           </div>
+
+          {/* Conditional Broker-Specific Fields */}
+          {partyType === 'broker' && (
+            <div style={{ 
+              background: 'hsla(38, 92%, 55%, 0.06)', 
+              border: '1px solid hsla(38, 92%, 55%, 0.25)', 
+              borderRadius: 'var(--radius-md)', 
+              padding: '14px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '12px' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '700', color: 'var(--accent-warning)' }}>
+                <Zap size={14} /> Brokerage, TDS & Hierarchy Terms
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="label-premium">Broker Role / Type</label>
+                  <select className="input-premium" value={brokerType} onChange={e => setBrokerType(e.target.value)}>
+                    <option value="Booking Agent">Booking Agent</option>
+                    <option value="Delivery Agent">Delivery Agent</option>
+                    <option value="Commission Agent">Commission Agent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label-premium">Default Commission (%)</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    min="0" 
+                    max="100" 
+                    placeholder="5.0" 
+                    className="input-premium" 
+                    value={commissionRate} 
+                    onChange={e => setCommissionRate(e.target.value)} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="label-premium">PAN Number (for TDS)</label>
+                  <input 
+                    type="text" 
+                    maxLength={10} 
+                    placeholder="AAABN1234K" 
+                    className="input-premium" 
+                    value={partyPan} 
+                    onChange={e => setPartyPan(e.target.value.toUpperCase())} 
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">TDS Section</label>
+                  <select className="input-premium" value={tdsSection} onChange={e => setTdsSection(e.target.value)}>
+                    <option value="194C (2%)">194C - Transport (2%)</option>
+                    <option value="194H (5%)">194H - Brokerage (5%)</option>
+                    <option value="Exempt (0%)">Exempt - No TDS (0%)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Sub-broker Mapping */}
+              <div style={{ borderTop: '1px dashed hsla(38, 92%, 55%, 0.3)', paddingTop: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={isSubBroker} 
+                    onChange={e => setIsSubBroker(e.target.checked)} 
+                  />
+                  <span>Is this a Sub-Broker? (Split Commission)</span>
+                </label>
+
+                {isSubBroker && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px', marginTop: '10px' }}>
+                    <div>
+                      <label className="label-premium">Primary Parent Broker</label>
+                      <select 
+                        className="input-premium" 
+                        value={parentBrokerId} 
+                        onChange={e => setParentBrokerId(e.target.value)}
+                      >
+                        <option value="">-- Select Parent Agency --</option>
+                        {existingBrokers.map(b => (
+                          <option key={b.id} value={b.id}>{b.name} ({b.id})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-premium">Sub Split (%)</label>
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="99" 
+                        placeholder="30" 
+                        className="input-premium" 
+                        value={subSplitPct} 
+                        onChange={e => setSubSplitPct(e.target.value)} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="label-premium">Contact Phone</label>
             <input type="tel" placeholder="+91-98100-00000" className="input-premium" value={partyPhone} onChange={e => setPartyPhone(e.target.value)} />
           </div>
+
           {partyType === 'client' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
@@ -420,6 +621,7 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
               </div>
             </div>
           )}
+
           {partyType === 'client' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
@@ -432,12 +634,24 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
               </div>
             </div>
           )}
+
           <div>
-            <label className="label-premium">Address</label>
+            <label className="label-premium">
+              {partyType === 'broker' ? 'Operating Hub / Office Address' : 'Address'}
+            </label>
             <textarea rows="2" placeholder="Street address..." className="input-premium" style={{ resize: 'none' }} value={partyAddress} onChange={e => setPartyAddress(e.target.value)} />
           </div>
-          <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
-            <PlusCircle size={14} /> Register Party
+
+          <button 
+            type="submit" 
+            className="btn-primary" 
+            style={{ 
+              justifyContent: 'center', 
+              background: partyType === 'broker' ? 'var(--accent-warning)' : 'var(--brand)',
+              color: partyType === 'broker' ? '#000' : '#fff'
+            }}
+          >
+            <PlusCircle size={14} /> {partyType === 'broker' ? 'Register Broker' : 'Register Party'}
           </button>
         </form>
       </div>
@@ -446,30 +660,62 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
       <div className="glass-panel" style={{ padding: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
           <Users size={17} style={{ color: 'var(--brand)' }} />
-          <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>Parties & Credit Terms</h3>
-          <span className="badge badge-brand" style={{ marginLeft: 'auto' }}>{parties.length} parties</span>
+          <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>Clients, Consignees & Brokers</h3>
+          <span className="badge badge-brand" style={{ marginLeft: 'auto' }}>{parties.length} total</span>
+        </div>
+
+        {/* Section Filter Pills */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          {[
+            { id: 'all', label: `All (${parties.length})` },
+            { id: 'client', label: `Clients (${clientCount})` },
+            { id: 'consignee', label: `Consignees (${consigneeCount})` },
+            { id: 'broker', label: `⭐ Brokers & Agents (${brokerCount})`, isSpecial: true }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setActiveFilter(f.id)}
+              className={`toggle-btn ${activeFilter === f.id ? 'active' : ''}`}
+              style={{
+                fontSize: '0.75rem',
+                padding: '5px 12px',
+                borderColor: f.isSpecial && activeFilter === f.id ? 'var(--accent-warning)' : undefined,
+                color: f.isSpecial && activeFilter === f.id ? 'var(--accent-warning)' : undefined
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: '16px' }}>
           <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" className="input-premium" style={{ paddingLeft: '33px', fontSize: '0.82rem' }}
-            placeholder="Search by name, type, or GSTIN…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input 
+            type="text" 
+            className="input-premium" 
+            style={{ paddingLeft: '33px', fontSize: '0.82rem' }}
+            placeholder="Search by name, type, broker role, PAN or GSTIN…" 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {filtered.map(p => {
-            const consignmentCount = lrs.filter(l => l.consignor === p.name).length;
+            const consignmentCount = lrs.filter(l => l.consignor === p.name || l.brokerId === p.id || l.brokerName === p.name).length;
             const isEditing = editingPartyId === p.id;
             const creditLimitNum = p.creditLimit !== undefined && p.creditLimit !== null ? p.creditLimit : p.credit_limit;
             const usedPct = creditLimitNum ? Math.min(100, Math.round((consignmentCount * 20000 / creditLimitNum) * 100)) : 0;
+            const isBroker = p.type === 'broker';
+            const parentBroker = p.parentBrokerId ? parties.find(x => x.id === p.parentBrokerId) : null;
 
             if (isEditing) {
               return (
-                <div key={p.id} style={{ padding: '16px', background: 'hsla(35,95%,55%,0.05)', border: '1px solid hsla(35,95%,55%,0.3)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div key={p.id} style={{ padding: '16px', background: 'hsla(205, 90%, 55%,0.05)', border: '1px solid hsla(205, 90%, 55%,0.3)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
                     <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--brand-light)' }}>
-                      Edit Party ({p.id})
+                      Edit {isBroker ? 'Broker / Agent' : 'Party'} ({p.id})
                     </span>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button className="btn-primary" style={{ padding: '5px 12px', fontSize: '0.75rem', gap: '4px' }} onClick={() => handleSaveEdit(p.id)}>
@@ -482,16 +728,17 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
                   </div>
 
                   <div>
-                    <label className="label-premium" style={{ fontSize: '0.7rem' }}>Party Name *</label>
+                    <label className="label-premium" style={{ fontSize: '0.7rem' }}>Name *</label>
                     <input type="text" className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
-                      <label className="label-premium" style={{ fontSize: '0.7rem' }}>Party Type</label>
+                      <label className="label-premium" style={{ fontSize: '0.7rem' }}>Classification</label>
                       <select className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.type} onChange={e => setEditForm({ ...editForm, type: e.target.value })}>
                         <option value="client">Consignor (Client)</option>
                         <option value="consignee">Consignee</option>
+                        <option value="broker">Agent / Broker</option>
                       </select>
                     </div>
                     <div>
@@ -499,6 +746,58 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
                       <input type="text" className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.gstin} onChange={e => setEditForm({ ...editForm, gstin: e.target.value })} />
                     </div>
                   </div>
+
+                  {editForm.type === 'broker' && (
+                    <div style={{ background: 'hsla(38, 92%, 55%, 0.08)', padding: '10px', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label className="label-premium" style={{ fontSize: '0.7rem' }}>Broker Role</label>
+                          <select className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.brokerType} onChange={e => setEditForm({ ...editForm, brokerType: e.target.value })}>
+                            <option value="Booking Agent">Booking Agent</option>
+                            <option value="Delivery Agent">Delivery Agent</option>
+                            <option value="Commission Agent">Commission Agent</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label-premium" style={{ fontSize: '0.7rem' }}>Commission (%)</label>
+                          <input type="number" step="0.1" className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.commissionRate} onChange={e => setEditForm({ ...editForm, commissionRate: e.target.value })} />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label className="label-premium" style={{ fontSize: '0.7rem' }}>PAN Number</label>
+                          <input type="text" maxLength={10} className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.pan} onChange={e => setEditForm({ ...editForm, pan: e.target.value.toUpperCase() })} />
+                        </div>
+                        <div>
+                          <label className="label-premium" style={{ fontSize: '0.7rem' }}>TDS Section</label>
+                          <select className="input-premium" style={{ fontSize: '0.82rem' }} value={editForm.tdsSection} onChange={e => setEditForm({ ...editForm, tdsSection: e.target.value })}>
+                            <option value="194C (2%)">194C (2%)</option>
+                            <option value="194H (5%)">194H (5%)</option>
+                            <option value="Exempt (0%)">Exempt (0%)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={editForm.isSubBroker} onChange={e => setEditForm({ ...editForm, isSubBroker: e.target.checked })} />
+                          <span>Is Sub-Broker?</span>
+                        </label>
+                        {editForm.isSubBroker && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '8px', marginTop: '6px' }}>
+                            <select className="input-premium" style={{ fontSize: '0.8rem' }} value={editForm.parentBrokerId} onChange={e => setEditForm({ ...editForm, parentBrokerId: e.target.value })}>
+                              <option value="">-- Select Parent --</option>
+                              {existingBrokers.filter(b => b.id !== p.id).map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                            <input type="number" placeholder="Split %" className="input-premium" style={{ fontSize: '0.8rem' }} value={editForm.subSplitPct} onChange={e => setEditForm({ ...editForm, subSplitPct: e.target.value })} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="label-premium" style={{ fontSize: '0.7rem' }}>Contact Phone</label>
@@ -527,20 +826,41 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
             }
 
             return (
-              <div key={p.id} style={{ padding: '14px 16px', background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+              <div 
+                key={p.id} 
+                style={{ 
+                  padding: '14px 16px', 
+                  background: 'var(--bg-elevated)', 
+                  border: isBroker ? '1px solid hsla(38, 92%, 55%, 0.3)' : '1px solid var(--border-subtle)', 
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: isBroker ? '0 0 12px hsla(38, 92%, 55%, 0.05)' : undefined
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                   <div>
-                    <p style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.name}</p>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'var(--font-display)' }}>{p.gstin || 'No GSTIN'}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <p style={{ fontWeight: '700', fontSize: '0.9rem', color: isBroker ? 'var(--accent-warning)' : 'var(--text-primary)' }}>
+                        {p.name}
+                      </p>
+                      <span 
+                        className={`badge ${isBroker ? 'badge-warning' : (p.type === 'client' ? 'badge-brand' : 'badge-cyan')}`} 
+                        style={{ fontSize: '0.65rem' }}
+                      >
+                        {isBroker ? `Broker (${p.brokerType || 'Agent'})` : p.type}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'var(--font-display)', fontWeight: '500' }}>
+                      {p.gstin ? `GSTIN: ${p.gstin}` : (p.pan ? `PAN: ${p.pan}` : 'Unregistered')}
+                    </p>
                   </div>
+
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <span className={`badge ${p.type === 'client' ? 'badge-brand' : 'badge-cyan'}`} style={{ fontSize: '0.65rem' }}>{p.type}</span>
                     {consignmentCount > 0 && (
                       <span style={{ fontSize: '0.65rem', background: 'var(--accent-info-glow)', color: 'var(--accent-info)', border: '1px solid var(--accent-info)', padding: '2px 7px', borderRadius: '10px', fontWeight: '600' }}>
-                        {consignmentCount} LRs
+                        {consignmentCount} Bookings
                       </span>
                     )}
-                    <button onClick={() => startEdit(p)} title="Edit Party details" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                    <button onClick={() => startEdit(p)} title="Edit details" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', padding: '2px', display: 'flex', alignItems: 'center' }}>
                       <Pencil size={13} />
                     </button>
                     {deleteConfirm === p.id ? (
@@ -556,12 +876,27 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: creditLimitNum ? '10px' : '0' }}>
-                  {(p.creditDays || p.credit_days) && <span>Credit: {p.creditDays || p.credit_days} days</span>}
-                  {creditLimitNum && <span>Limit: ₹{Number(creditLimitNum).toLocaleString('en-IN')}</span>}
-                  {p.phone && <span>Phone: {p.phone}</span>}
-                  {p.address && <span style={{ color: 'var(--text-muted)' }}>{p.address}</span>}
-                </div>
+                {/* Broker Specs Strip */}
+                {isBroker ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '0.74rem', background: 'hsla(38, 92%, 55%, 0.05)', padding: '8px 10px', borderRadius: '4px', marginBottom: '8px', border: '1px dashed hsla(38, 92%, 55%, 0.2)' }}>
+                    <span><strong style={{ color: 'var(--text-muted)' }}>Comm. Rate:</strong> <span style={{ color: 'var(--accent-warning)', fontWeight: '700' }}>{p.commissionRate || 5}%</span></span>
+                    <span><strong style={{ color: 'var(--text-muted)' }}>TDS:</strong> {p.tdsSection || '194C (2%)'}</span>
+                    {p.pan && <span><strong style={{ color: 'var(--text-muted)' }}>PAN:</strong> {p.pan}</span>}
+                    {p.parentBrokerId && (
+                      <span style={{ color: 'var(--accent-info)' }}>
+                        <strong>Sub-Broker:</strong> {p.subSplitPct || 30}% split of {parentBroker ? parentBroker.name : p.parentBrokerId}
+                      </span>
+                    )}
+                    {p.phone && <span><strong style={{ color: 'var(--text-muted)' }}>Phone:</strong> {p.phone}</span>}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.75rem', color: 'var(--text-primary)', marginBottom: creditLimitNum ? '10px' : '0' }}>
+                    {(p.creditDays || p.credit_days) && <span><strong style={{ color: 'var(--text-muted)' }}>Credit:</strong> {p.creditDays || p.credit_days} days</span>}
+                    {creditLimitNum && <span><strong style={{ color: 'var(--text-muted)' }}>Limit:</strong> ₹{Number(creditLimitNum).toLocaleString('en-IN')}</span>}
+                    {p.phone && <span><strong style={{ color: 'var(--text-muted)' }}>Phone:</strong> {p.phone}</span>}
+                    {p.address && <span><strong style={{ color: 'var(--text-muted)' }}>Address:</strong> {p.address}</span>}
+                  </div>
+                )}
 
                 {creditLimitNum && (
                   <div>
@@ -642,12 +977,12 @@ function RateCardsTab({ rateCards, showToast }) {
             const freight = wt > 0 ? Math.round(wt * (isEditing ? Number(editRate) : rc.rate) + (isEditing ? Number(editSurcharge) : rc.surcharges)) : 0;
 
             return (
-              <div key={idx} style={{ padding: '16px', background: isEditing ? 'hsla(35,95%,55%,0.04)' : 'hsla(222,22%,12%,0.6)', border: `1px solid ${isEditing ? 'hsla(35,95%,55%,0.25)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)' }}>
+              <div key={idx} style={{ padding: '16px', background: isEditing ? 'hsla(205, 90%, 55%,0.04)' : 'var(--bg-elevated)', border: `1px solid ${isEditing ? 'hsla(205, 90%, 55%,0.25)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
                   {/* Lane Header */}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontWeight: '800', fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--brand-light)' }}>{rc.lane}</span>
+                      <span style={{ fontWeight: '800', fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--brand)' }}>{rc.lane}</span>
                       <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{rc.articleType}</span>
                     </div>
 
@@ -658,7 +993,7 @@ function RateCardsTab({ rateCards, showToast }) {
                         { label: 'Vol. Factor', field: 'vol', value: editVolFactor, set: setEditVolFactor, display: rc.volumetricFactor },
                       ].map(field => (
                         <div key={field.label} style={{ padding: '8px 10px', background: 'var(--bg-void)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>{field.label}</p>
+                          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', fontWeight: '600' }}>{field.label}</p>
                           {isEditing
                             ? <input type="number" className="input-premium" style={{ padding: '4px', fontSize: '0.78rem', height: 'auto' }} value={field.value} onChange={e => field.set(e.target.value)} />
                             : <p style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{field.display}</p>
@@ -690,16 +1025,16 @@ function RateCardsTab({ rateCards, showToast }) {
                 {/* Freight Simulator */}
                 <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Zap size={13} style={{ color: 'var(--brand)', flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Simulator:</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600', whiteSpace: 'nowrap' }}>Simulator:</span>
                   <input
                     type="number"
                     placeholder="Enter kg"
                     value={simWeight[idx] || ''}
                     onChange={e => setSimWeight(prev => ({ ...prev, [idx]: e.target.value }))}
-                    style={{ width: '100px', padding: '4px 8px', fontSize: '0.75rem', background: 'var(--bg-void)', border: '1px solid var(--border-subtle)', borderRadius: '4px', color: '#fff' }}
+                    style={{ width: '100px', padding: '4px 8px', fontSize: '0.75rem', background: 'var(--bg-void)', border: '1px solid var(--border-subtle)', borderRadius: '4px', color: 'var(--text-primary)' }}
                   />
                   {wt > 0 && (
-                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--brand-light)' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--brand)' }}>
                       ≈ ₹{freight.toLocaleString('en-IN')} <span style={{ fontWeight: '400', color: 'var(--text-muted)', fontSize: '0.68rem' }}>+18% GST</span>
                     </span>
                   )}
@@ -775,7 +1110,7 @@ function OwnersTab({ vehicleOwners, setVehicleOwners, showToast }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '24px', alignItems: 'start' }}>
+    <div className="responsive-grid-split">
 
       {/* Add Owner Form */}
       <div className="glass-panel" style={{ padding: '22px' }}>
@@ -837,10 +1172,10 @@ function OwnersTab({ vehicleOwners, setVehicleOwners, showToast }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {vehicleOwners.map(vo => (
-            <div key={vo.id} style={{ padding: '16px', background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+            <div key={vo.id} style={{ padding: '16px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                 <div>
-                  <p style={{ fontWeight: '700', fontSize: '0.95rem' }}>{vo.name}</p>
+                  <p style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-primary)' }}>{vo.name}</p>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>ID: {vo.id}</p>
                 </div>
                 <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>Attached</span>
@@ -854,8 +1189,8 @@ function OwnersTab({ vehicleOwners, setVehicleOwners, showToast }) {
                   { label: 'IFSC', value: vo.ifsc || 'N/A' },
                 ].map(row => (
                   <div key={row.label} style={{ padding: '8px 10px', background: 'var(--bg-void)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>{row.label}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}>{row.value}</p>
+                    <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: '600' }}>{row.label}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)', fontWeight: '500' }}>{row.value}</p>
                   </div>
                 ))}
               </div>
@@ -865,7 +1200,7 @@ function OwnersTab({ vehicleOwners, setVehicleOwners, showToast }) {
                 <span style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '10px', background: vo.panVerified ? 'var(--accent-success-glow)' : 'var(--accent-warning-glow)', color: vo.panVerified ? 'var(--accent-success)' : 'var(--accent-warning)', fontWeight: '600' }}>
                   {vo.panVerified ? <ShieldCheck size={10} /> : <AlertTriangle size={10} />} PAN {vo.panVerified ? 'Verified' : 'Pending Verification'}
                 </span>
-                <span style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '10px', background: vo.bankVerified ? 'var(--accent-success-glow)' : 'hsla(222,22%,14%,0.8)', color: vo.bankVerified ? 'var(--accent-success)' : 'var(--text-muted)', border: '1px solid var(--border-subtle)', fontWeight: '500' }}>
+                <span style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '10px', background: vo.bankVerified ? 'var(--accent-success-glow)' : 'var(--bg-elevated)', color: vo.bankVerified ? 'var(--accent-success)' : 'var(--text-muted)', border: '1px solid var(--border-subtle)', fontWeight: '500' }}>
                   <CreditCard size={10} /> Bank {vo.bankVerified ? 'Verified' : 'Not Validated'}
                 </span>
               </div>
@@ -926,12 +1261,12 @@ function GlossaryTab() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
           {COMPLIANCE_RULES.map(r => (
-            <div key={r.rule} style={{ padding: '14px', background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+            <div key={r.rule} style={{ padding: '14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '1.1rem' }}>{r.icon}</span>
                 <span style={{ fontSize: '0.78rem', fontWeight: '700', color: r.color }}>{r.rule}</span>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{r.detail}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>{r.detail}</p>
             </div>
           ))}
         </div>
@@ -953,11 +1288,11 @@ function GlossaryTab() {
               placeholder="Search terms or definitions…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button onClick={() => setActiveCategory('all')} style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', cursor: 'pointer', fontWeight: '600', background: activeCategory === 'all' ? 'var(--brand)' : 'transparent', color: activeCategory === 'all' ? '#fff' : 'var(--text-secondary)' }}>
+            <button onClick={() => setActiveCategory('all')} style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', cursor: 'pointer', fontWeight: '600', background: activeCategory === 'all' ? 'var(--brand)' : 'transparent', color: activeCategory === 'all' ? '#fff' : 'var(--text-primary)' }}>
               All
             </button>
             {Object.entries(CATEGORIES).map(([key, cat]) => (
-              <button key={key} onClick={() => setActiveCategory(key)} style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', border: `1px solid ${activeCategory === key ? cat.color : 'var(--border-subtle)'}`, cursor: 'pointer', fontWeight: '600', background: activeCategory === key ? `${cat.color}20` : 'transparent', color: activeCategory === key ? cat.color : 'var(--text-secondary)' }}>
+              <button key={key} onClick={() => setActiveCategory(key)} style={{ padding: '6px 12px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', border: `1px solid ${activeCategory === key ? cat.color : 'var(--border-subtle)'}`, cursor: 'pointer', fontWeight: '600', background: activeCategory === key ? `${cat.color}20` : 'transparent', color: activeCategory === key ? cat.color : 'var(--text-primary)' }}>
                 {cat.label}
               </button>
             ))}
@@ -968,14 +1303,14 @@ function GlossaryTab() {
           {filtered.map(t => {
             const catColor = CATEGORIES[t.category]?.color || 'var(--text-muted)';
             return (
-              <div key={t.key} style={{ padding: '14px', background: 'hsla(222,22%,12%,0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+              <div key={t.key} style={{ padding: '14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                   <p style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{t.term}</p>
                   <span style={{ fontSize: '0.6rem', background: `${catColor}20`, color: catColor, border: `1px solid ${catColor}40`, padding: '2px 6px', borderRadius: '8px', fontWeight: '600', whiteSpace: 'nowrap', marginLeft: '8px', flexShrink: 0 }}>
                     {CATEGORIES[t.category]?.label || t.category}
                   </span>
                 </div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.55' }}>{t.definition}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', lineHeight: '1.55' }}>{t.definition}</p>
               </div>
             );
           })}

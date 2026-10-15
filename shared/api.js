@@ -105,7 +105,13 @@ const mapLR = (l) => {
     warehouseBin: l.warehouse_bin !== undefined ? l.warehouse_bin : l.warehouseBin,
     physicalPodReceived: l.physical_pod_received !== undefined ? l.physical_pod_received : l.physicalPodReceived,
     podUrl: l.pod_url !== undefined ? l.pod_url : l.podUrl,
-    date: l.date ? l.date.split('T')[0] : ''
+    date: l.date ? l.date.split('T')[0] : '',
+    brokerId: l.broker_id !== undefined ? l.broker_id : (l.brokerId || null),
+    brokerName: l.broker_name !== undefined ? l.broker_name : (l.brokerName || null),
+    brokerCommission: l.broker_commission !== undefined ? Number(l.broker_commission) : (l.brokerCommission !== undefined ? Number(l.brokerCommission) : 0),
+    brokerCommissionType: l.broker_commission_type || l.brokerCommissionType || 'percent',
+    brokerCommissionRate: l.broker_commission_rate !== undefined ? Number(l.broker_commission_rate) : (l.brokerCommissionRate !== undefined ? Number(l.brokerCommissionRate) : 0),
+    vehicleNo: l.vehicle_no !== undefined ? l.vehicle_no : (l.vehicleNo || '')
   };
 };
 
@@ -154,7 +160,14 @@ const mapParty = (p) => {
     creditLimit: p.credit_limit !== undefined ? (p.credit_limit !== null ? Number(p.credit_limit) : null) : (p.creditLimit !== undefined && p.creditLimit !== null ? Number(p.creditLimit) : null),
     creditDays: p.credit_days !== undefined ? (p.credit_days !== null ? Number(p.credit_days) : null) : (p.creditDays !== undefined && p.creditDays !== null ? Number(p.creditDays) : null),
     address: p.address || null,
-    phone: p.phone || ''
+    phone: p.phone || '',
+    pan: p.pan || '',
+    commissionRate: p.commission_rate !== undefined ? (p.commission_rate !== null ? Number(p.commission_rate) : null) : (p.commissionRate !== undefined && p.commissionRate !== null ? Number(p.commissionRate) : (p.type === 'broker' ? 5.0 : null)),
+    brokerType: p.broker_type !== undefined ? p.broker_type : (p.brokerType || (p.type === 'broker' ? 'Booking Agent' : null)),
+    parentBrokerId: p.parent_broker_id !== undefined ? p.parent_broker_id : (p.parentBrokerId || null),
+    subSplitPct: p.sub_split_pct !== undefined && p.sub_split_pct !== null ? Number(p.sub_split_pct) : (p.subSplitPct !== undefined && p.subSplitPct !== null ? Number(p.subSplitPct) : 30),
+    tdsSection: p.tds_section !== undefined ? p.tds_section : (p.tdsSection || '194C (2%)'),
+    tdsRate: p.tds_rate !== undefined && p.tds_rate !== null ? Number(p.tds_rate) : (p.tdsRate !== undefined && p.tdsRate !== null ? Number(p.tdsRate) : 2.0)
   };
 };
 
@@ -335,7 +348,8 @@ const mockDb = {
   getParties: () => getStorageItem('temp_parties', INITIAL_PARTIES),
   createParty: (data) => {
     const list = mockDb.getParties();
-    const newItem = { ...data, id: data.id || `PAR-0${list.length + 1}` };
+    const prefix = data.type === 'broker' ? 'BRK' : 'PAR';
+    const newItem = { ...data, id: data.id || `${prefix}-0${list.length + 1}` };
     list.push(newItem);
     setStorageItem('temp_parties', list);
     return newItem;
@@ -372,6 +386,7 @@ const mockDb = {
       actualWt: Number(data.actualWt || 0),
       chargeWt: Number(data.chargeWt || 0),
       freightTerms: data.freightTerms || 'TBB',
+      vehicleNo: data.vehicleNo || data.vehicle_no || '',
       status: 'Booked',
       date: new Date().toISOString().split('T')[0]
     };
@@ -715,15 +730,42 @@ export const api = {
       }).then(handleResponse).then(mapLR),
       () => mapLR(mockDb.createLR(data))
     ),
-  updateLR: (lrNo, updates) => 
-    callWithFallback(
+  updateLR: (lrNo, updates) => {
+    const keyMap = {
+      bookingBranch: 'booking_branch',
+      consignorId: 'consignor_id',
+      consigneeId: 'consignee_id',
+      actualWt: 'actual_wt',
+      chargeWt: 'charge_wt',
+      privateMark: 'private_mark',
+      saidToContain: 'said_to_contain',
+      freightTerms: 'freight_terms',
+      ewayBill: 'eway_bill',
+      freightAmt: 'freight_amt',
+      manifestId: 'manifest_id',
+      warehouseBin: 'warehouse_bin',
+      physicalPodReceived: 'physical_pod_received',
+      podUrl: 'pod_url',
+      cftPerBox: 'cft_per_box',
+      totalCft: 'total_cft',
+      boxSizeType: 'box_size_type',
+      currentLocation: 'current_location'
+    };
+    const dbUpdates = {};
+    for (const [key, val] of Object.entries(updates)) {
+      const dbKey = keyMap[key] || key;
+      dbUpdates[dbKey] = val;
+    }
+
+    return callWithFallback(
       () => fetch(`${BASE_URL}/lrs/${lrNo}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
+        body: JSON.stringify(dbUpdates)
       }).then(handleResponse).then(mapLR),
       () => mapLR(mockDb.updateLR(lrNo, updates))
-    ),
+    );
+  },
   deleteLR: (lrNo) => 
     callWithFallback(
       () => fetch(`${BASE_URL}/lrs/${lrNo}`, {
@@ -955,12 +997,12 @@ export const api = {
           truck_no: data.truckNo,
           driver_id: data.driverId,
           driver_name: data.driverName,
-          odo_start: Number(data.odoStart),
-          odo_end: Number(data.odoEnd),
-          status: data.status,
-          start_date: data.startDate,
-          driver_advance: Number(data.driverAdvance),
-          lorry_receipt_no: data.lorryReceiptNo
+          odo_start: Number(data.odoStart) || 0,
+          odo_end: (data.odoEnd !== undefined && data.odoEnd !== null && !isNaN(Number(data.odoEnd))) ? Number(data.odoEnd) : null,
+          status: data.status || 'Started',
+          start_date: data.startDate || new Date().toISOString().split('T')[0],
+          driver_advance: Number(data.driverAdvance) || 0,
+          lorry_receipt_no: data.lorryReceiptNo || null
         })
       }).then(handleResponse).then(mapTrip),
       () => mapTrip(mockDb.createTrip(data))

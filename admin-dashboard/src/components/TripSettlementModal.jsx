@@ -478,14 +478,14 @@ export default function TripSettlementModal({ trip, onClose, onConfirmSettlement
             justifyContent: 'center',
             padding: '2rem'
           }}>
-            <div style={{ position: 'relative', maxWidth: '500px', width: '100%', background: '#1e293b', padding: '1rem', borderRadius: '12px' }}>
+            <div style={{ position: 'relative', maxWidth: '500px', width: '100%', background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
               <button
                 onClick={() => setPreviewImage(null)}
-                style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
               >
                 <X size={24} />
               </button>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>Scanned Bill Preview</h4>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: 'var(--text-primary)' }}>Scanned Bill Preview</h4>
               <img src={previewImage} alt="Receipt" style={{ width: '100%', borderRadius: '8px', maxHeight: '60vh', objectFit: 'contain' }} />
             </div>
           </div>

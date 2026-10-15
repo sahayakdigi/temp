@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Calculator, Truck, Layers, FileSignature, CheckCircle, ArrowRight, Info, Plus, Trash2, Printer, X, ShieldCheck, MessageSquare, Send } from 'lucide-react';
+import { FileText, Calculator, Truck, Layers, FileSignature, CheckCircle, ArrowRight, Info, Plus, Trash2, Printer, X, ShieldCheck, MessageSquare, Send, UserCheck, Download, Loader2 } from 'lucide-react';
 import GlossaryTooltip from '../components/GlossaryTooltip';
 import { GLOSSARY } from '../components/glossaryData';
 import { api } from '../services/api';
@@ -27,6 +27,41 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
   const [declaredVal, setDeclaredVal]   = useState(500000);
   const [freightAmt, setFreightAmt]     = useState(0);
   const [rateOverridden, setRateOverridden] = useState(false);
+
+  // --- Broker & Commission States ---
+  const [selectedBrokerId, setSelectedBrokerId] = useState('');
+  const [brokerCommissionMode, setBrokerCommissionMode] = useState('percent'); // 'percent' vs 'flat'
+  const [brokerCommissionVal, setBrokerCommissionVal] = useState('');
+
+  const handleBrokerChange = (brokerId) => {
+    setSelectedBrokerId(brokerId);
+    if (!brokerId) {
+      setBrokerCommissionVal('');
+      return;
+    }
+    const b = parties.find(p => p.id === brokerId);
+    if (b) {
+      const defaultRate = b.commissionRate ?? b.commission_rate ?? 5;
+      if (brokerCommissionMode === 'percent') {
+        setBrokerCommissionVal(String(defaultRate));
+      } else {
+        const base = isFTL ? Number(contractRate || 0) : Number(freightAmt || 0);
+        setBrokerCommissionVal(String(Math.round((base * Number(defaultRate)) / 100)));
+      }
+    }
+  };
+
+  const handleCommissionModeToggle = (mode) => {
+    setBrokerCommissionMode(mode);
+    const b = parties.find(p => p.id === selectedBrokerId);
+    const base = isFTL ? Number(contractRate || 0) : Number(freightAmt || 0);
+    const defaultRate = Number(b?.commissionRate ?? b?.commission_rate ?? 5);
+    if (mode === 'percent') {
+      setBrokerCommissionVal(String(defaultRate));
+    } else {
+      setBrokerCommissionVal(String(Math.round((base * defaultRate) / 100)));
+    }
+  };
   
   // --- Indian GST GTA States (FR-15.2) ---
   const [gstBillingMode, setGstBillingMode] = useState('RCM'); // 'RCM' (5%) vs 'Forward' (12%)
@@ -41,6 +76,13 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
   const [contractRate, setContractRate]   = useState(60000);
   const [selectedTruck, setSelectedTruck] = useState(trucks[0]?.regNo || '');
   const [selectedDriver, setSelectedDriver] = useState(drivers[0]?.id || '');
+
+  // Hired / Ad-hoc truck states (ephemeral: attached to LR & Trip without cluttering permanent fleet masters)
+  const [truckSourceType, setTruckSourceType] = useState('fleet'); // 'fleet' or 'hired'
+  const [hiredTruckNo, setHiredTruckNo]       = useState('');
+  const [driverSourceType, setDriverSourceType] = useState('fleet'); // 'fleet' or 'custom'
+  const [customDriverName, setCustomDriverName] = useState('');
+  const [customDriverPhone, setCustomDriverPhone] = useState('');
 
   // --- Box Size & Volumetric CFT States ---
   const [boxSizeType, setBoxSizeType]   = useState('Medium'); // 'Small', 'Medium', 'Large', 'Custom'
@@ -83,6 +125,38 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
   const [successMsg, setSuccessMsg]         = useState('');
   const [previewBilty, setPreviewBilty]     = useState(null);
   const [whatsappModalData, setWhatsappModalData] = useState(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    const element = document.getElementById('bilty-printable-area');
+    if (!element) return;
+    setIsDownloadingPdf(true);
+    try {
+      if (!window.html2pdf) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      const lrName = previewBilty?.lrNo || previewBilty?.lr_no || 'Document';
+      const opt = {
+        margin: [6, 6, 6, 6],
+        filename: `Bilty_${lrName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      await window.html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.warn('Direct PDF conversion fallback to print window:', err);
+      window.print();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   // Lookups
   const consignorObj = parties.find(p => p.name === consignor);
@@ -121,6 +195,34 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
 
   const gstDetails = getGstTaxDetails(isFTL ? contractRate : freightAmt);
 
+  // Broker Calculations
+  const selectedBroker = parties.find(p => p.id === selectedBrokerId);
+  const baseFreightAmt = isFTL ? Number(contractRate || 0) : Number(freightAmt || 0);
+  const commissionInputVal = Number(brokerCommissionVal || 0);
+  const calculatedBrokerCommission = selectedBrokerId 
+    ? (brokerCommissionMode === 'percent' 
+        ? Math.round((baseFreightAmt * commissionInputVal) / 100) 
+        : Math.round(commissionInputVal))
+    : 0;
+
+  // Broker TDS calculation
+  const brokerTdsRate = selectedBroker 
+    ? (selectedBroker.tdsSection === 'Exempt' 
+        ? 0 
+        : Number(selectedBroker.tdsRate ?? selectedBroker.tds_rate ?? (selectedBroker.tdsSection === '194H' ? 5 : 2))) 
+    : 0;
+  const brokerTdsAmt = Math.round((calculatedBrokerCommission * brokerTdsRate) / 100);
+  const brokerNetPayout = calculatedBrokerCommission - brokerTdsAmt;
+
+  // Sub-broker hierarchy split
+  const isSubBrokerSelected = selectedBroker && Boolean(selectedBroker.parentBrokerId || selectedBroker.parent_broker_id);
+  const parentBrokerObj = isSubBrokerSelected 
+    ? parties.find(p => p.id === (selectedBroker.parentBrokerId || selectedBroker.parent_broker_id))
+    : null;
+  const subSplitPct = Number(selectedBroker?.subSplitPct ?? selectedBroker?.sub_split_pct ?? 30);
+  const subBrokerSplitAmt = isSubBrokerSelected ? Math.round((calculatedBrokerCommission * subSplitPct) / 100) : 0;
+  const primaryBrokerSplitAmt = isSubBrokerSelected ? (calculatedBrokerCommission - subBrokerSplitAmt) : calculatedBrokerCommission;
+
   // Auto-Rate calculation effect
   useEffect(() => {
     if (isFTL) return;
@@ -149,6 +251,13 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
       consignee: consignee,
       consignor_id: consignorObj.id,
       consignee_id: consigneeObj.id,
+      broker_id: selectedBrokerId || null,
+      broker_name: selectedBroker ? selectedBroker.name : null,
+      broker_commission: calculatedBrokerCommission,
+      broker_commission_type: brokerCommissionMode,
+      broker_commission_rate: commissionInputVal,
+      broker_tds_amt: brokerTdsAmt,
+      broker_net_payout: brokerNetPayout,
       origin,
       destination,
       articles: Number(articles),
@@ -189,8 +298,10 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
 
   // --- Settle Bookings (Bulk or Single) ---
   const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!consignorObj?.id || !consigneeObj?.id) {
+    if (e && e.preventDefault) e.preventDefault();
+    const activeConsignor = consignorObj || parties.find(p => p.name === consignor) || parties[0];
+    const activeConsignee = consigneeObj || parties.find(p => p.name === consignee) || parties[1] || parties[0];
+    if (!activeConsignor || !activeConsignee) {
       alert('Error: Consignor or Consignee not found in Parties master.');
       return;
     }
@@ -198,10 +309,17 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
     const base = {
       lr_no: `LR-2026-0${lrs.length + 1}`,
       booking_branch: getBookingBranchCode(origin),
-      consignor_id: consignorObj.id, 
-      consignee_id: consigneeObj.id,
-      consignor,
-      consignee,
+      consignor_id: activeConsignor.id || 'PRT-CLIENT-01', 
+      consignee_id: activeConsignee.id || 'PRT-CLIENT-02',
+      consignor: activeConsignor.name || consignor,
+      consignee: activeConsignee.name || consignee,
+      broker_id: selectedBrokerId || null,
+      broker_name: selectedBroker ? selectedBroker.name : null,
+      broker_commission: calculatedBrokerCommission,
+      broker_commission_type: brokerCommissionMode,
+      broker_commission_rate: commissionInputVal,
+      broker_tds_amt: brokerTdsAmt,
+      broker_net_payout: brokerNetPayout,
       origin, 
       destination,
       articles: Number(articles), 
@@ -229,13 +347,24 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
       physical_pod_received: false,
     };
 
+    const driverObj = (drivers || []).find(d => d.id === selectedDriver) || drivers[0];
+    const effTruckNo = (truckSourceType === 'hired' ? hiredTruckNo.trim().toUpperCase() : selectedTruck) || trucks[0]?.regNo || 'MH-12-Q-4567';
+    const effDriverName = driverSourceType === 'custom' ? (customDriverName.trim() || 'Hired Driver') : (driverObj?.name || 'Unknown');
+    const effDriverPhone = driverSourceType === 'custom' ? (customDriverPhone.trim() || '9876543210') : (driverObj?.phone || '9876543210');
+
     if (isFTL) {
+      if (truckSourceType === 'hired' && !hiredTruckNo.trim()) {
+        alert('Please enter the hired truck vehicle number before booking.');
+        return;
+      }
+
       const newTripId = `TRP-2026-0${trips.length + 1}`;
-      const driverObj = drivers.find(d => d.id === selectedDriver);
       
       const payload = { 
         ...base, 
-        freight_amt: Number(contractRate)
+        freight_amt: Number(contractRate),
+        vehicle_no: effTruckNo,
+        vehicleNo: effTruckNo
       };
 
       api.createLR(payload)
@@ -247,10 +376,12 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
             origin, 
             destination, 
             contractRate: Number(contractRate), 
-            truckNo: selectedTruck, 
-            driverId: selectedDriver, 
-            driverName: driverObj?.name || 'Unknown', 
+            truckNo: effTruckNo, 
+            driverId: driverSourceType === 'custom' ? 'DRV-HIRED' : (selectedDriver || 'DRV-001'), 
+            driverName: effDriverName, 
+            driverPhone: effDriverPhone,
             odoStart: 100000, 
+            odoEnd: 100000,
             status: 'Started', 
             startDate: base.date, 
             expenses: [], 
@@ -258,13 +389,13 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
             lorryReceiptNo: base.lr_no 
           };
 
-          const cPhone = formatPhoneForWhatsapp(consignorObj, '7799654708');
-          const dPhone = formatPhoneForWhatsapp(consigneeObj, '9876543210');
+          const cPhone = formatPhoneForWhatsapp(activeConsignor, '7799654708');
+          const dPhone = formatPhoneForWhatsapp(activeConsignee, '9876543210');
 
           api.createTrip(newTripData)
             .then(savedTrip => {
               setTrips([savedTrip, ...trips]);
-              setSuccessMsg(`FTL Dispatch Trip ${newTripId} & LR ${base.lr_no} generated successfully.`);
+              setSuccessMsg(`FTL Dispatch Trip ${newTripId} & LR ${base.lr_no} with Truck ${effTruckNo} generated successfully.`);
               setPreviewBilty(saved);
               setWhatsappModalData({
                 id: base.lr_no,
@@ -276,9 +407,9 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                 consigneePhone: dPhone,
                 origin,
                 destination,
-                vehicleNo: selectedTruck,
-                driverName: driverObj?.name || 'Driver',
-                driverPhone: driverObj?.phone || '9876543210',
+                vehicleNo: effTruckNo,
+                driverName: effDriverName,
+                driverPhone: effDriverPhone,
                 articles: Number(articles),
                 chargeWt: Number(chargeWt),
                 freightTerms
@@ -293,8 +424,8 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
         freight_amt: Number(freightAmt)
       };
 
-      const cPhone = formatPhoneForWhatsapp(consignorObj, '7799654708');
-      const dPhone = formatPhoneForWhatsapp(consigneeObj, '9876543210');
+      const cPhone = formatPhoneForWhatsapp(activeConsignor, '7799654708');
+      const dPhone = formatPhoneForWhatsapp(activeConsignee, '9876543210');
 
       api.createLR(payload)
         .then(saved => { 
@@ -393,7 +524,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
       <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1.1fr', gap: '24px', alignItems: 'start' }}>
 
         {/* Main Form */}
-        <form className="glass-panel" style={{ padding: '26px', display: 'flex', flexDirection: 'column', gap: '22px' }} onSubmit={handleSubmit}>
+        <form noValidate className="glass-panel" style={{ padding: '26px', display: 'flex', flexDirection: 'column', gap: '22px' }} onSubmit={handleSubmit}>
 
           {/* Form Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -452,6 +583,164 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
               <span style={{ color: 'var(--accent-info)', fontWeight: '600', fontSize: '0.72rem', background: 'hsla(210, 90%, 55%, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Consolidated at Hub Manifest</span>
             </div>
           )}
+
+          {/* Agent / Broker Selection & Manual Commission Section */}
+          <div style={{
+            background: 'var(--bg-elevated)',
+            border: selectedBroker ? '1px solid hsla(38, 92%, 50%, 0.35)' : '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-md)',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            transition: 'all 0.2s ease'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  background: selectedBroker ? 'hsla(38, 92%, 50%, 0.15)' : 'var(--bg-void)',
+                  color: selectedBroker ? 'var(--accent-warning)' : 'var(--text-muted)',
+                  padding: '6px',
+                  borderRadius: '6px'
+                }}>
+                  <UserCheck size={16} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.88rem', fontWeight: '700', color: selectedBroker ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    Booking Agent / Broker (Optional)
+                  </h4>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                    Assign commission agent, customize rate or manual payout, & calculate TDS
+                  </p>
+                </div>
+              </div>
+
+              {selectedBroker && (
+                <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                  ⭐ {selectedBroker.brokerType || selectedBroker.broker_type || 'Agent'} Assigned
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: selectedBroker ? '1.2fr 1.8fr' : '1fr', gap: '14px' }}>
+              {/* Broker Selector */}
+              <div>
+                <label className="label-premium" style={{ fontSize: '0.74rem' }}>Select Agent / Broker</label>
+                <select 
+                  className="input-premium" 
+                  value={selectedBrokerId} 
+                  onChange={e => handleBrokerChange(e.target.value)}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <option value="">None / Direct Booking (No Broker)</option>
+                  {parties.filter(p => p.type === 'broker').map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.id} - {p.name} ({p.brokerType || p.broker_type || 'Broker'} · {p.commissionRate || p.commission_rate || 5}%)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Conditional Manual Commission Controls */}
+              {selectedBroker && (
+                <div style={{
+                  background: 'var(--bg-void)',
+                  border: '1px solid hsla(38, 92%, 50%, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--accent-warning)' }}>
+                      Commission Calculation & Manual Override
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-elevated)', padding: '2px', borderRadius: '4px' }}>
+                      <button
+                        type="button"
+                        className={`toggle-btn ${brokerCommissionMode === 'percent' ? 'active' : ''}`}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                        onClick={() => handleCommissionModeToggle('percent')}
+                      >
+                        Percent (%)
+                      </button>
+                      <button
+                        type="button"
+                        className={`toggle-btn ${brokerCommissionMode === 'flat' ? 'active' : ''}`}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                        onClick={() => handleCommissionModeToggle('flat')}
+                      >
+                        Flat (₹)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label className="label-premium" style={{ fontSize: '0.7rem' }}>
+                        {brokerCommissionMode === 'percent' ? 'Commission Rate (%)' : 'Manual Flat Amount (₹)'}
+                      </label>
+                      <input 
+                        type="number"
+                        step={brokerCommissionMode === 'percent' ? '0.1' : '1'}
+                        className="input-premium"
+                        style={{ fontSize: '0.82rem', padding: '6px 10px', borderColor: 'hsla(38, 92%, 50%, 0.4)' }}
+                        placeholder={brokerCommissionMode === 'percent' ? 'e.g. 5.0' : 'e.g. 1500'}
+                        value={brokerCommissionVal}
+                        onChange={e => setBrokerCommissionVal(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="label-premium" style={{ fontSize: '0.7rem' }}>Gross Calculated Commission</label>
+                      <div style={{
+                        padding: '6px 10px',
+                        background: 'var(--bg-elevated)',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        color: 'var(--accent-warning)'
+                      }}>
+                        ₹{calculatedBrokerCommission.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Broker Compliance / TDS breakdown */}
+                  <div style={{
+                    fontSize: '0.72rem',
+                    color: 'var(--text-secondary)',
+                    paddingTop: '6px',
+                    borderTop: '1px dashed var(--border-subtle)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>
+                      PAN: <strong>{selectedBroker.pan || 'N/A'}</strong> · TDS: <strong>{selectedBroker.tdsSection || selectedBroker.tds_section || '194H'} ({brokerTdsRate}%)</strong>
+                    </span>
+                    <span>
+                      TDS Ded: <strong style={{ color: 'var(--accent-danger)' }}>-₹{brokerTdsAmt.toLocaleString('en-IN')}</strong> · Net Pay: <strong style={{ color: 'var(--accent-success)' }}>₹{brokerNetPayout.toLocaleString('en-IN')}</strong>
+                    </span>
+                  </div>
+
+                  {/* Sub-broker hierarchy split preview */}
+                  {isSubBrokerSelected && (
+                    <div style={{
+                      fontSize: '0.7rem',
+                      background: 'hsla(38, 92%, 50%, 0.08)',
+                      padding: '5px 8px',
+                      borderRadius: '4px',
+                      color: 'var(--text-secondary)'
+                    }}>
+                      ⚡ <strong>Sub-broker split ({subSplitPct}%):</strong> Sub ₹{subBrokerSplitAmt.toLocaleString('en-IN')} | Primary ({100 - subSplitPct}% to {parentBrokerObj?.name || 'Primary'}): ₹{primaryBrokerSplitAmt.toLocaleString('en-IN')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Route Cities */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'end' }}>
@@ -531,7 +820,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
               </div>
 
               {/* Estimated Box Size & Volumetric CFT Selection */}
-              <div style={{ background: 'hsla(222, 22%, 12%, 0.4)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label className="label-premium" style={{ marginBottom: 0 }}>Estimated Box Size / Cargo Dimensions (CFT)</label>
                   <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--accent-success)' }}>
@@ -582,7 +871,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                 </div>
 
                 {boxSizeType === 'Custom' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginTop: '6px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginTop: '6px', background: 'var(--bg-void)', padding: '10px', borderRadius: '6px' }}>
                     <div>
                       <label className="label-premium" style={{ fontSize: '0.72rem' }}>Length ({dimUnit})</label>
                       <input 
@@ -645,16 +934,68 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
               </div>
             </>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '16px' }}>
-              <div>
-                <label className="label-premium">Cargo Description</label>
-                <input type="text" className="input-premium" placeholder="e.g. Steel Coils, Industrial Equipment" value={saidToContain} onChange={e => setSaidToContain(e.target.value)} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="label-premium">FTL Load Weight (kg)</label>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--brand-light)', fontWeight: '700' }}>
+                      {(Number(actualWt || 0) / 1000).toFixed(1)} MT
+                    </span>
+                  </div>
+                  <input 
+                    type="number" 
+                    className="input-premium" 
+                    placeholder="e.g. 15000" 
+                    value={actualWt} 
+                    onChange={e => {
+                      setActualWt(e.target.value);
+                      setChargeWt(e.target.value);
+                    }} 
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">Chargeable Weight (kg)</label>
+                  <input 
+                    type="number" 
+                    className="input-premium" 
+                    value={chargeWt} 
+                    onChange={e => setChargeWt(e.target.value)} 
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">No. of Articles / Pkgs</label>
+                  <input 
+                    type="number" 
+                    className="input-premium" 
+                    placeholder="1 (Full Load)" 
+                    value={articles} 
+                    onChange={e => setArticles(e.target.value)} 
+                  />
+                </div>
               </div>
-              <div>
-                <label className="label-premium">Placement Type</label>
-                <select className="input-premium" value={articles} onChange={e => setArticles(e.target.value)}>
-                  <option value="1">Full Placement (Single)</option>
-                </select>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label-premium">Cargo Description (Said to Contain)</label>
+                  <input 
+                    type="text" 
+                    className="input-premium" 
+                    placeholder="e.g. Steel Coils, Heavy Machinery, FMCG Pallets" 
+                    value={saidToContain} 
+                    onChange={e => setSaidToContain(e.target.value)} 
+                  />
+                </div>
+                <div>
+                  <label className="label-premium">Private Mark / Stencil</label>
+                  <input 
+                    type="text" 
+                    className="input-premium" 
+                    placeholder="e.g. FTL-DEL-MUM-01" 
+                    value={privateMark} 
+                    onChange={e => setPrivateMark(e.target.value)} 
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -683,7 +1024,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
           </div>
 
           {/* Risk Basis & Insurance Capture (FR-15.6) */}
-          <div style={{ padding: '16px', background: 'hsla(222, 22%, 12%, 0.4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="label-premium" style={{ marginBottom: 0 }}>Goods Risk & Insurance Terms</span>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -726,24 +1067,95 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
 
           {/* FTL Vehicle Sourcing */}
           {isFTL && (
-            <div style={{ padding: '18px', background: 'var(--brand-glow-lg)', borderRadius: 'var(--radius-md)', border: '1px solid hsla(35, 95%, 55%, 0.2)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h4 style={{ fontSize: '0.9rem', color: 'var(--brand-light)', display: 'flex', alignItems: 'center', gap: '7px', fontWeight: '700' }}>
-                <Truck size={16} /> Vehicle Sourcing & Dispatch
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="label-premium">Assign Truck</label>
-                  <select className="input-premium" value={selectedTruck} onChange={e => setSelectedTruck(e.target.value)}>
-                    {trucks.map(t => <option key={t.regNo} value={t.regNo}>{t.regNo} ({t.ownership})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-premium">Assign Driver</label>
-                  <select className="input-premium" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
-                    {drivers.map(d => <option key={d.id} value={d.id}>{d.name} ({d.phone})</option>)}
-                  </select>
+            <div style={{ padding: '18px', background: 'var(--brand-glow-lg)', borderRadius: 'var(--radius-md)', border: '1px solid hsla(205, 90%, 55%, 0.2)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--brand-light)', display: 'flex', alignItems: 'center', gap: '7px', fontWeight: '700' }}>
+                  <Truck size={16} /> Vehicle Sourcing & Dispatch
+                </h4>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${truckSourceType === 'fleet' ? 'active' : ''}`}
+                    style={{ padding: '3px 10px', fontSize: '0.72rem' }}
+                    onClick={() => setTruckSourceType('fleet')}
+                  >
+                    Registered Fleet
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${truckSourceType === 'hired' ? 'active' : ''}`}
+                    style={{ padding: '3px 10px', fontSize: '0.72rem', borderColor: truckSourceType === 'hired' ? 'var(--brand)' : undefined }}
+                    onClick={() => setTruckSourceType('hired')}
+                  >
+                    + Hired / New Truck
+                  </button>
                 </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label-premium">
+                    {truckSourceType === 'fleet' ? 'Assign Fleet Truck' : 'Hired Truck Vehicle Number'}
+                  </label>
+                  {truckSourceType === 'fleet' ? (
+                    <select className="input-premium" value={selectedTruck} onChange={e => setSelectedTruck(e.target.value)}>
+                      {trucks.map(t => <option key={t.regNo || t.reg_no} value={t.regNo || t.reg_no}>{(t.regNo || t.reg_no)} ({t.ownership || 'Fleet'})</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <input
+                        type="text"
+                        className="input-premium"
+                        placeholder="e.g. MH-12-AB-1234"
+                        value={hiredTruckNo}
+                        onChange={e => setHiredTruckNo(e.target.value.toUpperCase())}
+                        style={{ fontFamily: 'monospace', letterSpacing: '0.05em', fontWeight: '700' }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                        ⚡ Ad-hoc vehicle for this trip & bilty (not added permanently to fleet masters)
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label className="label-premium" style={{ marginBottom: 0 }}>Assign Driver</label>
+                    <button
+                      type="button"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--brand-light)', fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => setDriverSourceType(prev => prev === 'fleet' ? 'custom' : 'fleet')}
+                    >
+                      {driverSourceType === 'fleet' ? '+ Custom / Hired Driver' : 'Pick Fleet Driver'}
+                    </button>
+                  </div>
+                  {driverSourceType === 'fleet' ? (
+                    <select className="input-premium" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
+                      {drivers.map(d => <option key={d.id} value={d.id}>{d.name} ({d.phone})</option>)}
+                    </select>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px' }}>
+                      <input
+                        type="text"
+                        className="input-premium"
+                        placeholder="Driver Name"
+                        value={customDriverName}
+                        onChange={e => setCustomDriverName(e.target.value)}
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                      <input
+                        type="tel"
+                        className="input-premium"
+                        placeholder="Mobile (10 digits)"
+                        value={customDriverPhone}
+                        onChange={e => setCustomDriverPhone(e.target.value)}
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label className="label-premium">Agreed Contract Rate (₹)</label>
@@ -837,12 +1249,35 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                   </div>
                   {rateOverridden && <p style={{ fontSize: '0.72rem', color: 'var(--accent-warning)', marginTop: '4px' }}>⚠ Override flagged in audit logs</p>}
                 </div>
-                <div style={{ background: 'var(--brand-glow)', border: '1px solid hsla(35,95%,55%,0.2)', borderRadius: 'var(--radius-md)', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <div style={{ background: 'var(--brand-glow)', border: '1px solid hsla(205, 90%, 55%,0.2)', borderRadius: 'var(--radius-md)', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                   <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Net Freight + Tax</span>
                   <span style={{ fontWeight: '800', fontSize: '1.2rem', color: 'var(--brand-light)', fontFamily: 'var(--font-display)' }}>
                     ₹{Math.round(Number(freightAmt) + gstDetails.cgst + gstDetails.sgst + gstDetails.igst).toLocaleString('en-IN')}
                   </span>
                 </div>
+
+                {/* Broker Commission Strip in Rating Engine */}
+                {selectedBroker && calculatedBrokerCommission > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    fontSize: '0.82rem',
+                    background: 'hsla(38, 92%, 50%, 0.08)',
+                    border: '1px dashed hsla(38, 92%, 50%, 0.35)',
+                    padding: '8px 10px',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--accent-warning)', fontWeight: '600' }}>
+                      <span>Broker Comm. ({selectedBroker.name.substring(0, 15)}):</span>
+                      <span>₹{calculatedBrokerCommission.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span>TDS ({brokerTdsRate}%): -₹{brokerTdsAmt.toLocaleString('en-IN')}</span>
+                      <span>Net Payout: ₹{brokerNetPayout.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -859,12 +1294,35 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                     <span style={{ fontWeight: '700' }}>₹{(gstDetails.cgst + gstDetails.sgst + gstDetails.igst).toLocaleString('en-IN')}</span>
                   </div>
                 </div>
-                <div style={{ background: 'var(--brand-glow)', border: '1px solid hsla(35,95%,55%,0.2)', borderRadius: 'var(--radius-md)', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <div style={{ background: 'var(--brand-glow)', border: '1px solid hsla(205, 90%, 55%,0.2)', borderRadius: 'var(--radius-md)', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                   <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Total FTL Invoice</span>
                   <span style={{ fontWeight: '800', fontSize: '1.2rem', color: 'var(--brand-light)', fontFamily: 'var(--font-display)' }}>
                     ₹{Math.round(Number(contractRate) + gstDetails.cgst + gstDetails.sgst + gstDetails.igst).toLocaleString('en-IN')}
                   </span>
                 </div>
+
+                {/* Broker Commission Strip in FTL Rating Engine */}
+                {selectedBroker && calculatedBrokerCommission > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    fontSize: '0.82rem',
+                    background: 'hsla(38, 92%, 50%, 0.08)',
+                    border: '1px dashed hsla(38, 92%, 50%, 0.35)',
+                    padding: '8px 10px',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--accent-warning)', fontWeight: '600' }}>
+                      <span>Broker Comm. ({selectedBroker.name.substring(0, 15)}):</span>
+                      <span>₹{calculatedBrokerCommission.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span>TDS ({brokerTdsRate}%): -₹{brokerTdsAmt.toLocaleString('en-IN')}</span>
+                      <span>Net Payout: ₹{brokerNetPayout.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -885,7 +1343,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '220px', marginBottom: '14px', paddingRight: '2px' }}>
                 {draftQueue.map(item => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'hsla(222, 22%, 12%, 0.5)', borderRadius: '6px', border: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
                     <div>
                       <div style={{ fontWeight: '700', color: 'var(--brand-light)' }}>{item.lr_no}</div>
                       <div style={{ color: 'var(--text-primary)', marginTop: '2px', fontWeight: '500' }}>
@@ -894,6 +1352,11 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
                         {item.origin} ➔ {item.destination} · {item.articles} pkgs ({item.charge_wt} kg)
                       </div>
+                      {item.broker_name && (
+                        <div style={{ color: 'var(--accent-warning)', fontSize: '0.7rem', marginTop: '2px' }}>
+                          Broker: {item.broker_name} · Comm: ₹{item.broker_commission} ({item.broker_commission_type === 'flat' ? 'Flat' : `${item.broker_commission_rate}%`})
+                        </div>
+                      )}
                     </div>
                     <button 
                       type="button" 
@@ -950,18 +1413,28 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
           background: 'rgba(5, 7, 12, 0.85)',
           backdropFilter: 'blur(8px)',
           display: 'flex', justifyContent: 'center', alignItems: 'center',
-          padding: '24px'
+          padding: '12px'
         }}>
-          <div className="glass-panel animate-scale-up" style={{
+          <div className="glass-panel animate-scale-up bilty-modal-content" style={{
             width: '100%', maxWidth: '780px', maxHeight: '92vh',
             background: '#ffffff', color: '#111827',
-            padding: '30px', borderRadius: '16px',
+            padding: '24px', borderRadius: '16px',
             display: 'flex', flexDirection: 'column', gap: '20px',
             boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
             overflowY: 'auto'
           }}>
             {/* Modal Actions */}
-            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+              <button 
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="btn-primary" 
+                style={{ background: '#2563eb', color: '#fff', border: '1px solid #1d4ed8', padding: '6px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {isDownloadingPdf ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                {isDownloadingPdf ? 'Generating PDF...' : 'Download as PDF'}
+              </button>
               <button 
                 onClick={() => window.print()}
                 className="btn-primary" 
@@ -996,11 +1469,17 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                   <p><strong>Lorry Receipt (LR) No:</strong> {previewBilty.lrNo || previewBilty.lr_no}</p>
                   <p style={{ marginTop: '4px' }}><strong>Date of Booking:</strong> {previewBilty.date}</p>
                   <p style={{ marginTop: '4px' }}><strong>Origin City:</strong> {previewBilty.origin}</p>
+                  <p style={{ marginTop: '4px' }}>
+                    <strong>Vehicle / Truck No:</strong> <span style={{ fontFamily: 'monospace', fontWeight: '800', background: '#f3f4f6', padding: '1px 6px', borderRadius: '3px' }}>
+                      {previewBilty.vehicleNo || previewBilty.vehicle_no || (trips.find(t => t.lorryReceiptNo === (previewBilty.lrNo || previewBilty.lr_no))?.truckNo) || 'Pending Allocation'}
+                    </span>
+                  </p>
                 </div>
                 <div style={{ background: '#fff', padding: '8px' }}>
                   <p><strong>Freight terms:</strong> <span style={{ textTransform: 'uppercase', fontWeight: '700' }}>{previewBilty.freightTerms || previewBilty.freight_terms}</span></p>
                   <p style={{ marginTop: '4px' }}><strong>E-Way Bill No:</strong> {previewBilty.ewayBill || previewBilty.eway_bill || 'N/A'}</p>
                   <p style={{ marginTop: '4px' }}><strong>Destination City:</strong> {previewBilty.destination}</p>
+                  <p style={{ marginTop: '4px' }}><strong>Service Mode:</strong> <span style={{ fontWeight: '700' }}>{previewBilty.vehicleNo || isFTL ? 'FTL (Direct Truckload)' : 'PTL (Consolidated Hub)'}</span></p>
                 </div>
               </div>
 
@@ -1018,27 +1497,37 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                 </div>
               </div>
 
+              {/* Agent / Broker details row */}
+              {(previewBilty.broker_name || previewBilty.brokerName) && (
+                <div style={{ border: '1px solid #111827', background: '#fffbeb', padding: '6px 10px', fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span><strong>Booking Agent / Broker:</strong> {previewBilty.broker_name || previewBilty.brokerName}</span>
+                  <span><strong>Commission:</strong> ₹{Number(previewBilty.broker_commission ?? previewBilty.brokerCommission ?? 0).toLocaleString('en-IN')} ({(previewBilty.broker_commission_type || previewBilty.brokerCommissionType) === 'flat' ? 'Flat' : `${previewBilty.broker_commission_rate ?? previewBilty.brokerCommissionRate ?? 5}%`})</span>
+                </div>
+              )}
+
               {/* Cargo Details Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #111827', fontSize: '0.78rem' }}>
-                <thead>
-                  <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #111827' }}>
-                    <th style={{ padding: '6px', borderRight: '1px solid #111827', textAlign: 'center' }}>No. of Articles</th>
-                    <th style={{ padding: '6px', borderRight: '1px solid #111827' }}>Said to Contain (Cargo Description)</th>
-                    <th style={{ padding: '6px', borderRight: '1px solid #111827', textAlign: 'right' }}>Actual Wt</th>
-                    <th style={{ padding: '6px', borderRight: '1px solid #111827', textAlign: 'right' }}>Charged Wt</th>
-                    <th style={{ padding: '6px' }}>Private Mark</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ borderBottom: '1px solid #111827', height: '60px', verticalAlign: 'top' }}>
-                    <td style={{ padding: '8px', borderRight: '1px solid #111827', textAlign: 'center', fontWeight: '700' }}>{previewBilty.articles}</td>
-                    <td style={{ padding: '8px', borderRight: '1px solid #111827' }}>{previewBilty.saidToContain || previewBilty.said_to_contain}</td>
-                    <td style={{ padding: '8px', borderRight: '1px solid #111827', textAlign: 'right' }}>{previewBilty.actualWt || previewBilty.actual_wt} kg</td>
-                    <td style={{ padding: '8px', borderRight: '1px solid #111827', textAlign: 'right', fontWeight: '700' }}>{previewBilty.chargeWt || previewBilty.charge_wt} kg</td>
-                    <td style={{ padding: '8px', fontFamily: 'monospace' }}><code>{previewBilty.privateMark || previewBilty.private_mark || 'N/A'}</code></td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="table-responsive">
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #111827', fontSize: '0.78rem', minWidth: '550px' }}>
+                  <thead>
+                    <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #111827' }}>
+                      <th style={{ padding: '6px', borderRight: '1px solid #111827', textAlign: 'center' }}>No. of Articles</th>
+                      <th style={{ padding: '6px', borderRight: '1px solid #111827' }}>Said to Contain (Cargo Description)</th>
+                      <th style={{ padding: '6px', borderRight: '1px solid #111827', textAlign: 'right' }}>Actual Wt</th>
+                      <th style={{ padding: '6px', borderRight: '1px solid #111827', textAlign: 'right' }}>Charged Wt</th>
+                      <th style={{ padding: '6px' }}>Private Mark</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #111827', height: '60px', verticalAlign: 'top' }}>
+                      <td style={{ padding: '8px', borderRight: '1px solid #111827', textAlign: 'center', fontWeight: '700' }}>{previewBilty.articles}</td>
+                      <td style={{ padding: '8px', borderRight: '1px solid #111827' }}>{previewBilty.saidToContain || previewBilty.said_to_contain}</td>
+                      <td style={{ padding: '8px', borderRight: '1px solid #111827', textAlign: 'right' }}>{previewBilty.actualWt || previewBilty.actual_wt} kg</td>
+                      <td style={{ padding: '8px', borderRight: '1px solid #111827', textAlign: 'right', fontWeight: '700' }}>{previewBilty.chargeWt || previewBilty.charge_wt} kg</td>
+                      <td style={{ padding: '8px', fontFamily: 'monospace' }}><code>{previewBilty.privateMark || previewBilty.private_mark || 'N/A'}</code></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               {/* Financial Breakup & Insurance */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', alignItems: 'start' }}>
@@ -1110,7 +1599,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ borderTop: '1px solid #111827', width: '70%', margin: '0 auto', paddingTop: '4px' }}>
-                    <strong>transporter / Agent Sign</strong>
+                    <strong>{(previewBilty.broker_name || previewBilty.brokerName) ? `Agent (${previewBilty.broker_name || previewBilty.brokerName}) / Transporter` : 'Transporter / Agent Sign'}</strong>
                   </div>
                 </div>
               </div>
@@ -1155,7 +1644,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                   </div>
                   <p style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '8px' }}>{whatsappModalData.consignor}</p>
                   
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.35)', padding: '10px', borderRadius: '6px', whiteSpace: 'pre-line', lineHeight: '1.45', fontFamily: 'monospace', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', background: 'var(--bg-void)', padding: '10px', borderRadius: '6px', whiteSpace: 'pre-line', lineHeight: '1.45', fontFamily: 'monospace', border: '1px solid var(--border-subtle)' }}>
                     {`Hello ${whatsappModalData.consignor},\nYour consignment #${whatsappModalData.id} has DISPATCHED! 🚚\nVehicle: ${whatsappModalData.vehicleNo}\nDriver: ${whatsappModalData.driverName} (${whatsappModalData.driverPhone})\nRoute: ${whatsappModalData.origin} ➔ ${whatsappModalData.destination}\nPkgs: ${whatsappModalData.articles} (${whatsappModalData.chargeWt} kg)\nLive Track: https://logisync.app/track/${whatsappModalData.id}`}
                   </div>
                 </div>
@@ -1180,7 +1669,7 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                   </div>
                   <p style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '8px' }}>{whatsappModalData.consignee}</p>
 
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.35)', padding: '10px', borderRadius: '6px', whiteSpace: 'pre-line', lineHeight: '1.45', fontFamily: 'monospace', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', background: 'var(--bg-void)', padding: '10px', borderRadius: '6px', whiteSpace: 'pre-line', lineHeight: '1.45', fontFamily: 'monospace', border: '1px solid var(--border-subtle)' }}>
                     {`Hello ${whatsappModalData.consignee},\nShipment #${whatsappModalData.id} from ${whatsappModalData.consignor} is EN ROUTE! 🚚\nVehicle: ${whatsappModalData.vehicleNo}\nDriver Contact: ${whatsappModalData.driverPhone}\nDestination: ${whatsappModalData.destination}\nTerms: ${whatsappModalData.freightTerms}\nLive Track: https://logisync.app/track/${whatsappModalData.id}`}
                   </div>
                 </div>

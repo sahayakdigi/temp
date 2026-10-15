@@ -19,7 +19,8 @@
     "dev:manager": "npm run dev --workspace manager-portal",
     "dev:hub": "npm run dev --workspace hub-portal",
     "dev:accountant": "npm run dev --workspace accountant-portal",
-    "start:backend": "npm start --workspace backend"
+    "start:backend": "npm start --workspace backend",
+    "codex": "codex"
   },
   "dependencies": {
     "firebase": "^12.15.0",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@openai/codex": "^0.154.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
