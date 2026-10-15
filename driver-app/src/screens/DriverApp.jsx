@@ -4,10 +4,10 @@ import {
   Smartphone, Wifi, WifiOff, Battery, Camera, Compass, Sparkles, 
   UploadCloud, User, Database, Power, AlertCircle, Bell,
   Home, Truck, PenTool, Package, ShieldAlert, XCircle, ShieldCheck,
-  Sun, Moon
+  Sun, Moon, RefreshCw
 } from 'lucide-react';
 
-export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, drivers = [] }) {
+export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, drivers = [], refreshData, lastSyncTime, isSyncing }) {
   // ── SYSTEM SIMULATOR STATE ────────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState(true);
   const [batteryLevel, setBatteryLevel] = useState(88);
@@ -72,6 +72,33 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
   const [epodPhoto, setEpodPhoto] = useState(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [cargoVerified, setCargoVerified] = useState(false);
+
+  // Auto-sync selectedTrip with live trips prop (clears if trip was cancelled/deleted in Admin Dashboard)
+  useEffect(() => {
+    if (selectedTrip) {
+      const liveTrip = trips.find(t => t.id === selectedTrip.id);
+      if (!liveTrip) {
+        // The active trip was deleted in admin dashboard!
+        if (activeDriver) {
+          const remainingAssigned = trips.filter(t => 
+            t.driverId === activeDriver.id || 
+            t.driver_id === activeDriver.id || 
+            (t.driverName && activeDriver.name && t.driverName.toLowerCase() === activeDriver.name.toLowerCase())
+          );
+          const nextTrip = remainingAssigned.find(t => t.status === 'InTransit' || t.status === 'Started' || t.status === 'Assigned') || remainingAssigned[0] || null;
+          setSelectedTrip(nextTrip);
+          if (!nextTrip) {
+            setActiveTab('home');
+          }
+        } else {
+          setSelectedTrip(null);
+          setActiveTab('home');
+        }
+      } else {
+        setSelectedTrip(liveTrip);
+      }
+    }
+  }, [trips, activeDriver]);
 
   // ── EXPENSE OCR STATE ─────────────────────────────────────────────────────
   const [expenseType, setExpenseType] = useState('fuel');
@@ -1124,6 +1151,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                 <span style={{ fontSize: '0.78rem', fontWeight: '600' }}>Dark</span>
               </>
             )}
+          </button>
+          <button 
+            className="btn btn-secondary"
+            onClick={() => refreshData && refreshData()}
+            title="Sync with Dispatch Database (PostgreSQL)"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--border-subtle)' }}
+          >
+            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} style={{ color: 'var(--brand)' }} />
+            <span style={{ fontSize: '0.78rem', fontWeight: '700' }}>
+              {isSyncing ? 'Syncing...' : 'Live Dispatch Sync'}
+            </span>
           </button>
           <button 
             className={`btn ${telemetryOpen ? 'btn-brand' : 'btn-secondary'}`}
