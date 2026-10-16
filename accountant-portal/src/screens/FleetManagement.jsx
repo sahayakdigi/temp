@@ -186,10 +186,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
   };
 
   // --- Maintenance Logs Database State (FR-6.4) ---
-  const [maintenanceLogs, setMaintenanceLogs] = useState([
-    { id: 'MNT-2026-001', regNo: 'MH-12-Q-4567', serviceDate: '2026-05-15', workDone: 'Routine engine service & air filter replacement', cost: 6800, odoReading: 104500, status: 'Completed' },
-    { id: 'MNT-2026-002', regNo: 'DL-01-A-1234', serviceDate: '2026-06-02', workDone: 'Front brake pads & disc skimming', cost: 12500, odoReading: 82100, status: 'Completed' }
-  ]);
+  const [maintenanceLogs, setMaintenanceLogs] = useState([]);
 
   // --- Date Compliance Audit Helper (FR-6.1 / FR-6.2) ---
   const checkCompliance = (expiryDateStr) => {

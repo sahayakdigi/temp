@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { api, isDriverAvailable } from '../services/api';
 import { 
   Smartphone, Wifi, WifiOff, Battery, Camera, Compass, Sparkles, 
   UploadCloud, User, Database, Power, AlertCircle, Bell,
@@ -7,7 +7,7 @@ import {
   Sun, Moon, RefreshCw
 } from 'lucide-react';
 
-export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, drivers = [], refreshData, lastSyncTime, isSyncing }) {
+export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, drivers = [], manifests = [], refreshData, lastSyncTime, isSyncing }) {
   // ── SYSTEM SIMULATOR STATE ────────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState(true);
   const [batteryLevel, setBatteryLevel] = useState(88);
@@ -52,6 +52,32 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
   const toggleRawLog = (id) => setExpandedLogs(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleRawAction = (id) => setExpandedActions(prev => ({ ...prev, [id]: !prev[id] }));
   const [hasSigned, setHasSigned] = useState(false);
+  const [tripChecklist, setTripChecklist] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('temp_trip_checklists') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const markTripChecklistStep = (tripId, stepKey) => {
+    if (!tripId) return;
+    setTripChecklist(prev => {
+      const updated = {
+        ...prev,
+        [tripId]: {
+          ...(prev[tripId] || {}),
+          [stepKey]: true
+        }
+      };
+      try {
+        localStorage.setItem('temp_trip_checklists', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('localStorage error:', e);
+      }
+      return updated;
+    });
+  };
 
   // ── APP SCREEN FLOW STATE ─────────────────────────────────────────────────
   const [currentScreen, setCurrentScreen] = useState('login'); // login, tripDetail, odoStart, odoEnd, epod, waybill, cargo, expense
@@ -505,29 +531,24 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
       photo: odoPhoto
     };
 
-    if (isOnline) {
-      const newApproval = {
-        id: `APP-END-${Date.now()}`,
-        type: 'odoEnd',
-        title: 'Odometer End Photo',
-        driverName: activeDriver?.name || selectedTrip?.driverName || 'Driver',
-        tripId: selectedTrip.id,
-        odoValue: odoNum,
-        photoUrl: odoPhoto || '/odo_end_sample.jpg',
-        status: 'pending',
-        timestamp: new Date().toISOString(),
-        payload: {
-          odoEnd: odoNum
-        }
-      };
-      setApprovals(prev => [newApproval, ...prev]);
-      setActivePendingApproval(newApproval);
-      setCurrentScreen('waitingApproval');
-    } else {
+    // Immediately mark trip as Delivered in backend & state so vehicle and driver are instantly freed
+    api.updateTrip(selectedTrip.id, { status: 'Delivered', odoEnd: odoNum })
+      .then(saved => {
+        setTrips(prev => prev.map(t => t.id === selectedTrip.id ? saved : t));
+        setSelectedTrip(saved);
+        if (refreshData) refreshData();
+      })
+      .catch(err => {
+        console.error("Failed to update trip on end:", err);
+      });
+
+    setSelectedTrip(prev => ({ ...prev, status: 'Delivered', odoEnd: odoNum }));
+    if (!isOnline) {
       queueToSqlite('END_TRIP', payload);
-      setSelectedTrip({ ...selectedTrip, status: 'Delivered', odoEnd: odoNum });
-      setCurrentScreen('tripDetail');
     }
+
+    setCurrentScreen('tripDetail');
+    alert(`Trip ${selectedTrip.id} completed successfully and marked Delivered! Driver and truck are now available for new assignments.`);
 
     setOdoValue('');
     setOdoPhoto(null);
@@ -868,13 +889,19 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
       }
     }
 
-    const targetLrNo = epodLr?.lrNo || selectedTrip?.lorryReceiptNo || (lrs.find(l => l.tripId === selectedTrip?.id)?.lrNo) || 'LR-PENDING';
+    const targetLrNo = epodLr?.lrNo || activeLrObj?.lrNo || selectedTrip?.lorryReceiptNo || (lrs.find(l => l.tripId === selectedTrip?.id)?.lrNo) || `LR-${selectedTrip?.id || 'FTL-001'}`;
     const payload = {
       lrNo: targetLrNo,
       podUrl: signatureImg,
       receiverName: epodSignerName,
       signature: 'SIGNED_GLASS'
     };
+
+    if (selectedTrip?.id) {
+      markTripChecklistStep(selectedTrip.id, 'signature');
+      api.updateTrip(selectedTrip.id, { clientSignature: true, receiverName: epodSignerName, podUrl: signatureImg }).catch(() => {});
+      setSelectedTrip(prev => prev ? ({ ...prev, clientSignature: true, receiverName: epodSignerName, podUrl: signatureImg }) : prev);
+    }
 
     if (isOnline) {
       const newApproval = {
@@ -916,6 +943,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
   const handleWaybillUpload = (e) => {
     e.preventDefault();
     setIsCompressing(true);
+
+    if (selectedTrip?.id) {
+      markTripChecklistStep(selectedTrip.id, 'waybill');
+      api.updateTrip(selectedTrip.id, { waybillUploaded: true }).catch(() => {});
+      setSelectedTrip(prev => prev ? ({ ...prev, waybillUploaded: true }) : prev);
+    }
+    setEpodPhoto(true);
 
     // Call Gemini photo analysis on the uploaded waybill photo
     api.analyzePhoto('/pod_sample.jpg', 'waybill')
@@ -964,7 +998,6 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
             tripId: selectedTrip.id,
             aiExtracted: extractedFields
           });
-          setEpodPhoto(true);
           setCurrentScreen('tripDetail');
         }
       })
@@ -989,13 +1022,17 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
           setCurrentScreen('waitingApproval');
         } else {
           queueToSqlite('UPLOAD_WAYBILL', { tripId: selectedTrip.id });
-          setEpodPhoto(true);
           setCurrentScreen('tripDetail');
         }
       });
   };
 
   const handleCargoVerification = () => {
+    if (selectedTrip?.id) {
+      markTripChecklistStep(selectedTrip.id, 'cargo');
+      api.updateTrip(selectedTrip.id, { cargoVerified: true }).catch(() => {});
+      setSelectedTrip(prev => prev ? ({ ...prev, cargoVerified: true }) : prev);
+    }
     setCargoVerified(true);
     setCurrentScreen('tripDetail');
   };
@@ -1042,6 +1079,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         })
         .catch(err => console.error("Expense save error:", err));
     } else if (type === 'epod') {
+      if (tripId) {
+        markTripChecklistStep(tripId, 'signature');
+        api.updateTrip(tripId, { clientSignature: true, podUrl: payload.podUrl }).catch(() => {});
+        if (selectedTrip && selectedTrip.id === tripId) {
+          setSelectedTrip(prev => prev ? ({ ...prev, clientSignature: true, podUrl: payload.podUrl }) : prev);
+        }
+      }
       api.updateLR(payload.lrNo, {
         status: 'Delivered',
         physicalPodReceived: true,
@@ -1055,6 +1099,13 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
         } : l));
       }).catch(err => console.error("ePOD save error:", err));
     } else if (type === 'waybill') {
+      if (tripId) {
+        markTripChecklistStep(tripId, 'waybill');
+        api.updateTrip(tripId, { waybillUploaded: true }).catch(() => {});
+        if (selectedTrip && selectedTrip.id === tripId) {
+          setSelectedTrip(prev => prev ? ({ ...prev, waybillUploaded: true }) : prev);
+        }
+      }
       setEpodPhoto(true);
     }
 
@@ -1115,11 +1166,42 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
   // Checklist verification states
   const hasInspectionDone = !!selectedTrip?.odoStart && Number(selectedTrip.odoStart) > 0;
-  const activeLrObj = selectedTrip ? (lrs.find(l => l.lrNo === selectedTrip.lorryReceiptNo) || lrs.find(l => l.tripId === selectedTrip.id) || lrs.find(l => !l.manifestId) || lrs[0]) : null;
+  const activeLrObj = selectedTrip ? (
+    lrs.find(l => l.lrNo && l.lrNo === selectedTrip.lorryReceiptNo) ||
+    lrs.find(l => l.tripId && l.tripId === selectedTrip.id) ||
+    lrs.find(l => !l.manifestId && l.status !== 'Delivered') ||
+    lrs[0] || {
+      lrNo: selectedTrip.lorryReceiptNo || `LR-${selectedTrip.id || 'FTL-001'}`,
+      tripId: selectedTrip.id,
+      consignor: selectedTrip.origin || 'Sender Hub',
+      consignee: selectedTrip.destination || 'Receiver Hub',
+      articles: 150,
+      weightKg: selectedTrip.weight || 4500,
+      status: selectedTrip.status === 'Delivered' ? 'Delivered' : 'InTransit'
+    }
+  ) : null;
+
   const isEpodDone = activeLrObj ? getLrStatusInApp(activeLrObj.lrNo) === 'Delivered' : false;
-  const hasWaybillUploaded = !!epodPhoto || isEpodDone;
-  const hasCargoVerified = cargoVerified || isEpodDone;
-  const isChecklistComplete = hasInspectionDone && hasSigned && hasWaybillUploaded && hasCargoVerified;
+  const isSignatureDone = Boolean(
+    (selectedTrip && tripChecklist[selectedTrip.id]?.signature) ||
+    selectedTrip?.clientSignature ||
+    selectedTrip?.signature ||
+    selectedTrip?.podUrl ||
+    isEpodDone
+  );
+  const hasWaybillUploaded = Boolean(
+    (selectedTrip && tripChecklist[selectedTrip.id]?.waybill) ||
+    epodPhoto ||
+    selectedTrip?.waybillUploaded ||
+    isEpodDone
+  );
+  const hasCargoVerified = Boolean(
+    (selectedTrip && tripChecklist[selectedTrip.id]?.cargo) ||
+    cargoVerified ||
+    selectedTrip?.cargoVerified ||
+    isEpodDone
+  );
+  const isChecklistComplete = hasInspectionDone && isSignatureDone && hasWaybillUploaded && hasCargoVerified;
 
   return (
     <div className="screen-container">
@@ -1836,6 +1918,28 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                     <div className="spinner-loader" style={{ width: '14px', height: '14px', borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
                     Awaiting verification...
                   </div>
+
+                  {activePendingApproval && (
+                    <button 
+                      type="button"
+                      onClick={() => handleApproveRequest(activePendingApproval)}
+                      className="btn btn-sm btn-success"
+                      style={{ 
+                        fontSize: '0.78rem', 
+                        fontWeight: '800', 
+                        padding: '9px 16px', 
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      <ShieldCheck size={15} />
+                      Simulate Owner Approval &amp; Continue
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1976,16 +2080,41 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                         fontWeight: '600' 
                       }}
                     >
-                      <option value="">-- Select Registered Driver ({drivers.length} available) --</option>
+                      <option value="">-- Select Registered Driver ({drivers.length} registered) --</option>
                       {drivers.map(d => {
-                        const dTrips = trips.filter(t => t.driverId === d.id || t.driver_id === d.id || (t.driverName && d.name && t.driverName.toLowerCase() === d.name.toLowerCase()));
+                        const avail = isDriverAvailable(d, trips, manifests, drivers);
                         return (
-                          <option key={d.id} value={d.id}>
-                            {d.name} ({d.id}) - {d.phone || 'No Phone'} [{dTrips.length} Trip{dTrips.length !== 1 ? 's' : ''}]
+                          <option key={d.id} value={d.id} style={{ color: avail.available ? '#10b981' : '#ef4444' }}>
+                            {avail.available ? '🟢' : '🔴'} {d.name} ({d.id}) — {avail.available ? 'Available' : `On Trip (${avail.activeItem?.id || avail.reason})`}
                           </option>
                         );
                       })}
                     </select>
+
+                    {activeDriver && (() => {
+                      const avail = isDriverAvailable(activeDriver, trips, manifests, drivers);
+                      return (
+                        <div style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          fontSize: '0.72rem',
+                          background: avail.available ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          border: `1px solid ${avail.available ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                          color: avail.available ? '#10b981' : '#ef4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: '600'
+                        }}>
+                          <span>{avail.available ? '🟢' : '🔴'}</span>
+                          <span>
+                            {avail.available 
+                              ? 'Driver is Available — Ready for new trip dispatch' 
+                              : `Driver is currently On Trip ${avail.activeItem?.id || ''} (${avail.reason}) — Must complete before next assignment`}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {activeDriver && (
                       <button 
@@ -2189,7 +2318,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                   )}
 
                   {/* ePOD Receiver Signature Canvas */}
-                  {currentScreen === 'epod' && epodLr && (
+                  {currentScreen === 'epod' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button onClick={() => setCurrentScreen('tripDetail')} style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800' }}>
@@ -2200,8 +2329,10 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
 
                       <form onSubmit={handleEpodSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>LR Number:</span>
-                          <strong style={{ color: 'var(--brand)', display: 'block', fontSize: '0.85rem', fontWeight: '800' }}>{epodLr.lrNo}</strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>LR / Trip Reference:</span>
+                          <strong style={{ color: 'var(--brand)', display: 'block', fontSize: '0.85rem', fontWeight: '800' }}>
+                            {epodLr?.lrNo || activeLrObj?.lrNo || selectedTrip?.lorryReceiptNo || selectedTrip?.id || 'FTL-TRIP'}
+                          </strong>
                         </div>
 
                         <div>
@@ -2922,10 +3053,8 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                   alert("Please complete Vehicle Inspection first!");
                                   return;
                                 }
-                                if (!hasSigned) {
-                                  setEpodLr(activeLrObj);
-                                  setCurrentScreen('epod');
-                                }
+                                setEpodLr(activeLrObj);
+                                setCurrentScreen('epod');
                               }}
                               style={{ 
                                 background: 'var(--bg-elevated)', 
@@ -2935,32 +3064,32 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
-                                cursor: hasSigned ? 'default' : 'pointer'
+                                cursor: 'pointer'
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {hasSigned ? (
+                                {isSignatureDone ? (
                                   <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'var(--accent-success-glow)', border: '1.5px solid var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-success)', fontSize: '0.72rem', fontWeight: 'bold' }}>✓</div>
                                 ) : (
                                   <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: '1.5px solid var(--border-default)' }} />
                                 )}
                                 <div>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: hasSigned ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
-                                    2. Client Signature ({selectedTrip.origin}) {hasSigned && '(Completed)'}
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: isSignatureDone ? 'var(--accent-success)' : 'var(--text-primary)', display: 'block' }}>
+                                    2. Client Signature ({selectedTrip.origin}) {isSignatureDone && '(Completed)'}
                                   </span>
                                 </div>
                               </div>
-                              <PenTool size={15} style={{ color: hasSigned ? 'var(--accent-success)' : 'var(--text-muted)' }} />
+                              <PenTool size={15} style={{ color: isSignatureDone ? 'var(--accent-success)' : 'var(--text-muted)' }} />
                             </div>
 
                             {/* Item 3: Upload Waybill Photo */}
                             <div 
                               onClick={() => {
-                                if (!hasSigned) {
-                                  alert("Please complete Client Signature first!");
+                                if (!hasInspectionDone) {
+                                  alert("Please complete Vehicle Inspection first!");
                                   return;
                                 }
-                                if (!hasWaybillUploaded) setCurrentScreen('waybill');
+                                setCurrentScreen('waybill');
                               }}
                               style={{ 
                                 background: 'var(--bg-elevated)', 
@@ -2970,7 +3099,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
-                                cursor: hasWaybillUploaded ? 'default' : 'pointer'
+                                cursor: 'pointer'
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2991,11 +3120,11 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                             {/* Item 4: Cargo Verification */}
                             <div 
                               onClick={() => {
-                                if (!hasWaybillUploaded) {
-                                  alert("Please complete Waybill Photo upload first!");
+                                if (!hasInspectionDone) {
+                                  alert("Please complete Vehicle Inspection first!");
                                   return;
                                 }
-                                if (!hasCargoVerified) setCurrentScreen('cargo');
+                                setCurrentScreen('cargo');
                               }}
                               style={{ 
                                 background: 'var(--bg-elevated)', 
@@ -3005,7 +3134,7 @@ export default function DriverApp({ trips = [], setTrips, lrs = [], setLrs, driv
                                 display: 'flex', 
                                 justifyContent: 'space-between', 
                                 alignItems: 'center',
-                                cursor: hasCargoVerified ? 'default' : 'pointer'
+                                cursor: 'pointer'
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

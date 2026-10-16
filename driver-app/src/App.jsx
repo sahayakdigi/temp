@@ -6,6 +6,7 @@ export default function App() {
   const [trips, setTrips] = useState([]);
   const [lrs, setLrs] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [manifests, setManifests] = useState([]);
   const [lastSyncTime, setLastSyncTime] = useState(Date.now());
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -14,7 +15,8 @@ export default function App() {
     return Promise.all([
       api.getTrips().then(setTrips).catch(err => console.error('Failed to load trips:', err)),
       api.getLRs().then(setLrs).catch(err => console.error('Failed to load LRs:', err)),
-      api.getDrivers().then(setDrivers).catch(err => console.error('Failed to load drivers:', err))
+      api.getDrivers().then(setDrivers).catch(err => console.error('Failed to load drivers:', err)),
+      api.getManifests().then(setManifests).catch(err => console.error('Failed to load manifests:', err))
     ]).finally(() => {
       setLastSyncTime(Date.now());
       setIsSyncing(false);
@@ -48,6 +50,7 @@ export default function App() {
       lrs={lrs} 
       setLrs={setLrs} 
       drivers={drivers} 
+      manifests={manifests}
       refreshData={refreshData}
       lastSyncTime={lastSyncTime}
       isSyncing={isSyncing}

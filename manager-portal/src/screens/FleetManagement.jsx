@@ -3,10 +3,10 @@ import {
   Truck, Users, PlusCircle, CheckCircle, Activity, Wrench, AlertTriangle, 
   Ban, Check, X, Edit, Paperclip, Eye, ChevronDown, ChevronUp, Shield, Radio
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, isTruckAvailable, isDriverAvailable } from '../services/api';
 import LiveFleetMap from '../components/LiveFleetMap';
 
-export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers, trips = [] }) {
+export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers, trips = [], manifests = [] }) {
   const [activeSubTab, setActiveSubTab] = useState(() => {
     return localStorage.getItem('temp_fleet_subtab') || 'trucks';
   }); // 'trucks' | 'drivers' | 'maintenance' | 'telemetry'
@@ -186,10 +186,7 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
   };
 
   // --- Maintenance Logs Database State (FR-6.4) ---
-  const [maintenanceLogs, setMaintenanceLogs] = useState([
-    { id: 'MNT-2026-001', regNo: 'MH-12-Q-4567', serviceDate: '2026-05-15', workDone: 'Routine engine service & air filter replacement', cost: 6800, odoReading: 104500, status: 'Completed' },
-    { id: 'MNT-2026-002', regNo: 'DL-01-A-1234', serviceDate: '2026-06-02', workDone: 'Front brake pads & disc skimming', cost: 12500, odoReading: 82100, status: 'Completed' }
-  ]);
+  const [maintenanceLogs, setMaintenanceLogs] = useState([]);
 
   // --- Date Compliance Audit Helper (FR-6.1 / FR-6.2) ---
   const checkCompliance = (expiryDateStr) => {
@@ -369,11 +366,15 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
+  const availableFleetCount = trucks.filter(t => isTruckAvailable(t.regNo || t.reg_no, trips, manifests, trucks).available).length;
+  const busyFleetCount = trucks.length - availableFleetCount;
+  const availableDriversCount = drivers.filter(d => isDriverAvailable(d.id, trips, manifests, drivers).available).length;
+
   const stats = [
-    { label: 'Total Trucks',    value: trucks.length,                                           color: 'var(--brand)' },
-    { label: 'Available Fleet', value: trucks.filter(t => t.status === 'Available').length,      color: 'var(--accent-success)' },
-    { label: 'Maintenance / Out', value: trucks.filter(t => t.status !== 'Available').length,     color: 'var(--accent-danger)' },
-    { label: 'Active Drivers',   value: drivers.filter(d => d.status === 'Active').length,        color: 'var(--accent-info)' },
+    { label: 'Total Trucks',       value: trucks.length,          color: 'var(--brand)' },
+    { label: 'Available Fleet',    value: availableFleetCount,    color: 'var(--accent-success)' },
+    { label: 'On Trip / Out',      value: busyFleetCount,         color: 'var(--accent-danger)' },
+    { label: 'Available Drivers',  value: availableDriversCount,  color: 'var(--accent-info)' },
   ];
 
   return (
@@ -729,12 +730,28 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                           </div>
                         </td>
                         <td>
-                          <span className={`badge ${
-                            truck.status === 'Available' ? 'badge-success' : 
-                            truck.status === 'Maintenance' ? 'badge-warning' : 'badge-danger'
-                          }`}>
-                            {truck.status}
-                          </span>
+                          {(() => {
+                            const tAvail = isTruckAvailable(truck.regNo || truck.reg_no, trips, manifests, trucks);
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                {tAvail.available ? (
+                                  <span className="badge badge-success" style={{ padding: '3px 7px', fontSize: '0.68rem', fontWeight: '700' }}>
+                                    🟢 Available
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-danger" style={{ padding: '3px 7px', fontSize: '0.68rem', fontWeight: '700' }}>
+                                    🔴 {tAvail.reason}
+                                  </span>
+                                )}
+                                {truck.status === 'Maintenance' && (
+                                  <span className="badge badge-warning" style={{ padding: '1px 5px', fontSize: '0.62rem' }}>Maintenance</span>
+                                )}
+                                {truck.status === 'Suspended' && (
+                                  <span className="badge badge-danger" style={{ padding: '1px 5px', fontSize: '0.62rem' }}>Suspended</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1031,9 +1048,25 @@ export default function FleetManagement({ trucks, setTrucks, drivers, setDrivers
                           </div>
                         </td>
                         <td>
-                          <span className={`badge ${d.status === 'Active' ? 'badge-success' : 'badge-danger'}`}>
-                            {d.status}
-                          </span>
+                          {(() => {
+                            const dAvail = isDriverAvailable(d.id, trips, manifests, drivers);
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <span className={`badge ${d.status === 'Active' ? 'badge-success' : 'badge-danger'}`} style={{ padding: '2px 6px', fontSize: '0.68rem' }}>
+                                  {d.status}
+                                </span>
+                                {dAvail.available ? (
+                                  <span className="badge badge-success" style={{ padding: '2px 6px', fontSize: '0.65rem', fontWeight: '700' }}>
+                                    🟢 Available
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-warning" style={{ padding: '2px 6px', fontSize: '0.65rem', fontWeight: '700' }}>
+                                    🔴 {dAvail.reason}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

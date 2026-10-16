@@ -10,6 +10,7 @@ import {
   INITIAL_RATES
 } from './mockDb';
 import { USERS } from './users';
+import { isTruckAvailable, isDriverAvailable } from './fleetAvailability';
 
 const BASE_URL = window.location.hostname === 'localhost' 
   ? 'http://localhost:3001/api' 
@@ -18,7 +19,10 @@ const BASE_URL = window.location.hostname === 'localhost'
 const handleResponse = async (response) => {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP error! status: ${response.status}`);
+    const error = new Error(err.error || `HTTP error! status: ${response.status}`);
+    error.status = response.status;
+    error.data = err;
+    throw error;
   }
   return response.json();
 };
@@ -220,6 +224,23 @@ const mapManifest = (m) => {
 };
 
 // ── LOCAL STORAGE MOCK DATABASE (Fallback when server is down/local only) ──
+if (typeof window !== 'undefined' && !localStorage.getItem('temp_clean_v2')) {
+  [
+    'temp_trucks',
+    'temp_drivers',
+    'temp_parties',
+    'temp_vehicle_owners',
+    'temp_trips',
+    'temp_manifests',
+    'temp_lrs',
+    'temp_expenses',
+    'temp_feedback',
+    'temp_trip_checklists',
+    'temp_approvals'
+  ].forEach(k => localStorage.removeItem(k));
+  localStorage.setItem('temp_clean_v2', 'true');
+}
+
 const getStorageItem = (key, initial) => {
   const item = localStorage.getItem(key);
   if (!item) {
@@ -471,6 +492,27 @@ const mockDb = {
   getManifests: () => getStorageItem('temp_manifests', INITIAL_MANIFESTS),
   createManifest: (data) => {
     const list = mockDb.getManifests();
+    const trips = mockDb.getTrips();
+    const trucks = mockDb.getTrucks();
+    const drivers = mockDb.getDrivers();
+
+    const vehNo = data.vehicleNo || data.vehicle_no;
+    const drvName = data.driverName || data.driver_name;
+
+    if (vehNo) {
+      const truckCheck = isTruckAvailable(vehNo, trips, list, trucks);
+      if (!truckCheck.available) {
+        throw new Error(`Vehicle ${vehNo} is not available: ${truckCheck.reason}. The vehicle must complete its current trip/manifest first.`);
+      }
+    }
+
+    if (drvName) {
+      const driverCheck = isDriverAvailable(drvName, trips, list, drivers);
+      if (!driverCheck.available) {
+        throw new Error(`Driver ${drvName} is not available: ${driverCheck.reason}. The driver must complete their current trip/manifest first.`);
+      }
+    }
+
     const newItem = {
       ...data,
       id: data.id || `MNF-2026-00${list.length + 1}`,
@@ -481,6 +523,16 @@ const mockDb = {
     };
     list.push(newItem);
     setStorageItem('temp_manifests', list);
+
+    if (vehNo) {
+      const cleanReg = vehNo.replace(/\s+/g, '').toUpperCase();
+      const tIdx = trucks.findIndex(t => (t.regNo || t.reg_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg);
+      if (tIdx !== -1) {
+        trucks[tIdx] = { ...trucks[tIdx], status: 'InTransit' };
+        setStorageItem('temp_trucks', trucks);
+      }
+    }
+
     return newItem;
   },
   updateManifest: (id, updates) => {
@@ -489,6 +541,32 @@ const mockDb = {
     if (idx !== -1) {
       list[idx] = { ...list[idx], ...updates };
       setStorageItem('temp_manifests', list);
+
+      if (['Delivered', 'Completed', 'Received', 'Cancelled'].includes(updates.status)) {
+        const vehNo = list[idx].vehicleNo || list[idx].vehicle_no;
+        if (vehNo) {
+          const trips = mockDb.getTrips();
+          const cleanReg = vehNo.replace(/\s+/g, '').toUpperCase();
+          const otherActiveManifests = list.filter(m =>
+            m.id !== id &&
+            (m.vehicleNo || m.vehicle_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg &&
+            !['Delivered', 'Completed', 'Received', 'Cancelled'].includes(m.status)
+          );
+          const activeTrips = trips.filter(t =>
+            (t.truckNo || t.truck_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg &&
+            !['Delivered', 'Cancelled'].includes(t.status)
+          );
+          if (otherActiveManifests.length === 0 && activeTrips.length === 0) {
+            const trucks = mockDb.getTrucks();
+            const tIdx = trucks.findIndex(t => (t.regNo || t.reg_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg);
+            if (tIdx !== -1) {
+              trucks[tIdx] = { ...trucks[tIdx], status: 'Available' };
+              setStorageItem('temp_trucks', trucks);
+            }
+          }
+        }
+      }
+
       return list[idx];
     }
     throw new Error('Manifest not found');
@@ -497,6 +575,29 @@ const mockDb = {
   getTrips: () => getStorageItem('temp_trips', INITIAL_TRIPS),
   createTrip: (data) => {
     const list = mockDb.getTrips();
+    const manifests = mockDb.getManifests();
+    const trucks = mockDb.getTrucks();
+    const drivers = mockDb.getDrivers();
+
+    if (data.truckNo) {
+      const truckCheck = isTruckAvailable(data.truckNo, list, manifests, trucks);
+      if (!truckCheck.available) {
+        throw new Error(`Vehicle ${data.truckNo} is not available: ${truckCheck.reason}. The truck must complete its current trip first.`);
+      }
+    }
+
+    if (data.driverId && data.driverId !== 'DRV-HIRED') {
+      const driverCheck = isDriverAvailable(data.driverId, list, manifests, drivers);
+      if (!driverCheck.available) {
+        throw new Error(`Driver is not available: ${driverCheck.reason}. The driver must complete their current trip first.`);
+      }
+    } else if (data.driverName) {
+      const driverCheck = isDriverAvailable(data.driverName, list, manifests, drivers);
+      if (!driverCheck.available) {
+        throw new Error(`Driver ${data.driverName} is not available: ${driverCheck.reason}. The driver must complete their current trip first.`);
+      }
+    }
+
     const newItem = {
       ...data,
       id: data.id || `TRP-2026-00${list.length + 1}`,
@@ -509,6 +610,16 @@ const mockDb = {
     };
     list.push(newItem);
     setStorageItem('temp_trips', list);
+
+    if (data.truckNo) {
+      const cleanReg = data.truckNo.replace(/\s+/g, '').toUpperCase();
+      const tIdx = trucks.findIndex(t => (t.regNo || t.reg_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg);
+      if (tIdx !== -1) {
+        trucks[tIdx] = { ...trucks[tIdx], status: 'InTransit' };
+        setStorageItem('temp_trucks', trucks);
+      }
+    }
+
     return newItem;
   },
   updateTrip: (id, updates) => {
@@ -517,14 +628,66 @@ const mockDb = {
     if (idx !== -1) {
       list[idx] = { ...list[idx], ...updates };
       setStorageItem('temp_trips', list);
+
+      if (updates.status === 'Delivered' || updates.status === 'Cancelled') {
+        const truckNo = list[idx].truckNo || list[idx].truck_no;
+        if (truckNo) {
+          const manifests = mockDb.getManifests();
+          const cleanReg = truckNo.replace(/\s+/g, '').toUpperCase();
+          const otherActiveTrips = list.filter(t => 
+            t.id !== id && 
+            (t.truckNo || t.truck_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg &&
+            !['Delivered', 'Cancelled'].includes(t.status)
+          );
+          const activeManifests = manifests.filter(m =>
+            (m.vehicleNo || m.vehicle_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg &&
+            !['Delivered', 'Completed', 'Received', 'Cancelled'].includes(m.status)
+          );
+          if (otherActiveTrips.length === 0 && activeManifests.length === 0) {
+            const trucks = mockDb.getTrucks();
+            const tIdx = trucks.findIndex(t => (t.regNo || t.reg_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg);
+            if (tIdx !== -1) {
+              trucks[tIdx] = { ...trucks[tIdx], status: 'Available' };
+              setStorageItem('temp_trucks', trucks);
+            }
+          }
+        }
+      }
+
       return list[idx];
     }
     throw new Error('Trip not found');
   },
   deleteTrip: (id) => {
     let list = mockDb.getTrips();
+    const target = list.find(t => t.id === id);
     list = list.filter(t => t.id !== id);
     setStorageItem('temp_trips', list);
+
+    if (target) {
+      const truckNo = target.truckNo || target.truck_no;
+      if (truckNo) {
+        const manifests = mockDb.getManifests();
+        const cleanReg = truckNo.replace(/\s+/g, '').toUpperCase();
+        const otherActiveTrips = list.filter(t => 
+          (t.truckNo || t.truck_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg &&
+          !['Delivered', 'Cancelled'].includes(t.status)
+        );
+        const activeManifests = manifests.filter(m =>
+          (m.vehicleNo || m.vehicle_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg &&
+          !['Delivered', 'Completed', 'Received', 'Cancelled'].includes(m.status)
+        );
+        if (otherActiveTrips.length === 0 && activeManifests.length === 0) {
+          const trucks = mockDb.getTrucks();
+          const tIdx = trucks.findIndex(t => (t.regNo || t.reg_no || '').replace(/\s+/g, '').toUpperCase() === cleanReg);
+          if (tIdx !== -1) {
+            trucks[tIdx] = { ...trucks[tIdx], status: 'Available' };
+            setStorageItem('temp_trucks', trucks);
+          }
+        }
+      }
+    }
+
     return { success: true };
   },
   createTripExpense: (tripId, expense) => {
@@ -601,6 +764,11 @@ const callWithFallback = async (apiPromiseFn, mockFn) => {
   try {
     return await apiPromiseFn();
   } catch (error) {
+    // If backend returned a 4xx validation error (e.g. 400 Bad Request),
+    // do NOT fall back and silently succeed! Re-throw so caller sees why it failed!
+    if (error && error.status >= 400 && error.status < 500) {
+      throw error;
+    }
     console.warn("Backend API failed, falling back to mock database:", error);
     return Promise.resolve(mockFn());
   }
@@ -1144,3 +1312,6 @@ export const api = {
       }
     )
 };
+
+export { isTruckAvailable, isDriverAvailable } from './fleetAvailability';
+

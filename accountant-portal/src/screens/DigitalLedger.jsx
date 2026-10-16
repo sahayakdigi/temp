@@ -1591,7 +1591,7 @@ export default function DigitalLedger({ trips = [], setTrips, lrs = [], setLrs, 
                       fontStyle: 'italic',
                       lineHeight: '1.8'
                     }}>
-                      Rajesh Sharma
+                      {selectedLr.receiverName || selectedLr.consignee || 'Authorized Signatory'}
                     </span>
                     <div style={{ fontSize: '0.68rem', color: 'var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', marginTop: '6px' }}>
                       <CheckCircle size={10} /> Verified via Delivery OTP

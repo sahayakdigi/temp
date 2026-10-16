@@ -125,12 +125,7 @@ export default function App() {
 
   // ── Notification State ──
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'New Booking', message: 'LR-2026-004 generated for Reliance Retail — ₹45,000', time: '10 mins ago', type: 'info', read: false, tab: 'booking' },
-    { id: 2, title: 'Trip Dispatched', message: 'MH-12-Q-4567 left Delhi Hub for Mumbai Warehouse', time: '1 hr ago', type: 'success', read: false, tab: 'manifest' },
-    { id: 3, title: 'Settlement Completed', message: 'Fuel advance of ₹15,000 paid to driver Rajesh Kumar', time: '3 hrs ago', type: 'success', read: true, tab: 'settlement' },
-    { id: 4, title: 'Pending POD', message: 'Lorry Receipt LR-2026-002 has been delivered. Physical POD pending.', time: '1 day ago', type: 'warning', read: true, tab: 'booking' },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const markAllNotifsAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -292,17 +287,17 @@ export default function App() {
   // ── Screen renderer ──
   const renderScreen = () => {
     switch (currentTab) {
-      case 'dashboard':   return <Dashboard trips={trips} lrs={lrs} manifests={manifests} userRole={currentUser.role} activeBranch={currentUser.branch} branches={branches} setBranches={setBranches} onNavigate={setCurrentTab} />;
-      case 'booking':     return <Booking lrs={lrs} setLrs={setLrs} trips={trips} setTrips={setTrips} parties={parties} rateCards={rates} trucks={trucks} drivers={drivers} />;
-      case 'manifest':    return <HubManifest lrs={lrs} setLrs={setLrs} manifests={manifests} setManifests={setManifests} trucks={trucks} drivers={drivers} currentUser={currentUser} branches={branches} parties={parties} />;
+      case 'dashboard':   return <Dashboard trips={trips} lrs={lrs} manifests={manifests} userRole={currentUser.role} activeBranch={currentUser.branch} branches={branches} setBranches={setBranches} onNavigate={setCurrentTab} trucks={trucks} drivers={drivers} />;
+      case 'booking':     return <Booking lrs={lrs} setLrs={setLrs} trips={trips} setTrips={setTrips} parties={parties} rateCards={rates} trucks={trucks} drivers={drivers} manifests={manifests} />;
+      case 'manifest':    return <HubManifest lrs={lrs} setLrs={setLrs} manifests={manifests} setManifests={setManifests} trucks={trucks} drivers={drivers} currentUser={currentUser} branches={branches} parties={parties} trips={trips} />;
       case 'ledger':      return <DigitalLedger trips={trips} setTrips={setTrips} lrs={lrs} setLrs={setLrs} manifests={manifests} branches={branches} />;
       case 'settlement':  return <ErrorBoundary><BillingSettlement lrs={lrs} setLrs={setLrs} trips={trips} setTrips={setTrips} vehicleOwners={vehicleOwners} trucks={trucks} parties={parties} /></ErrorBoundary>;
       case 'warehouse':   return <WarehouseOps lrs={lrs} setLrs={setLrs} branches={branches} onNavigate={setCurrentTab} />;
-      case 'fleet':       return <FleetManagement trucks={trucks} setTrucks={setTrucks} drivers={drivers} setDrivers={setDrivers} trips={trips} />;
+      case 'fleet':       return <FleetManagement trucks={trucks} setTrucks={setTrucks} drivers={drivers} setDrivers={setDrivers} trips={trips} manifests={manifests} />;
       case 'masters':     return <ErrorBoundary><Masters branches={branches} setBranches={setBranches} parties={parties} setParties={setParties} rateCards={rates} vehicleOwners={vehicleOwners} setVehicleOwners={setVehicleOwners} lrs={lrs} showToast={showToast} /></ErrorBoundary>;
       case 'settings':    return <SettingsScreen currentUser={currentUser} onUserUpdate={(updated) => setCurrentUser(updated)} />;
       case 'enquiries':   return <ErrorBoundary><Enquiries showToast={showToast} /></ErrorBoundary>;
-      default:            return <Dashboard trips={trips} lrs={lrs} manifests={manifests} userRole={currentUser.role} activeBranch={currentUser.branch} branches={branches} setBranches={setBranches} onNavigate={setCurrentTab} />;
+      default:            return <Dashboard trips={trips} lrs={lrs} manifests={manifests} userRole={currentUser.role} activeBranch={currentUser.branch} branches={branches} setBranches={setBranches} onNavigate={setCurrentTab} trucks={trucks} drivers={drivers} />;
     }
   };
 

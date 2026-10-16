@@ -1,1 +1,1 @@
-export { api } from '../../../shared/api';
+export { api, isTruckAvailable, isDriverAvailable } from '../../../shared/api';

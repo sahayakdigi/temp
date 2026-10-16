@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Truck, FileText, TrendingUp, Wallet, AlertTriangle, MapPin, Clock, ArrowUpRight, Plus, X, ShieldAlert, Layers, CheckCircle, BarChart3, Radio } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function Dashboard({ trips, lrs, manifests, userRole, activeBranch, branches, setBranches, onNavigate }) {
+export default function Dashboard({ trips, lrs, manifests, userRole, activeBranch, branches, setBranches, onNavigate, trucks = [], drivers = [] }) {
   // --- Dashboard Branch/Hub Selection Context ---
   const [selectedBranch, setSelectedBranch] = useState('All');
 
@@ -372,12 +372,48 @@ export default function Dashboard({ trips, lrs, manifests, userRole, activeBranc
   // --- Dynamic Action Center Feed (FR-12.1) ---
   const actionItems = [];
   
-  // 1. Expiry alerts (critical drivers/lorry compliance)
-  const complianceAlerts = [
-    { type: 'Fitness Expiry', entity: 'Lorry DL-1G-B-9988', desc: 'Fitness Certificate expires in 25 days!', severity: 'danger' },
-    { type: 'Licence Expiry', entity: 'Driver Muthu Swamy', desc: 'Driving licence expires in 5 days!', severity: 'danger' },
-  ];
-  complianceAlerts.forEach(a => actionItems.push(a));
+  // 1. Dynamic Expiry alerts (real registered trucks & drivers compliance)
+  const today = new Date();
+  
+  (trucks || []).forEach(truck => {
+    const reg = truck.reg_no || truck.regNo || 'Truck';
+    const checkExpiry = (dateStr, type) => {
+      if (!dateStr) return;
+      const expDate = new Date(dateStr);
+      if (isNaN(expDate.getTime())) return;
+      const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 30) {
+        actionItems.push({
+          type: `${type} Expiry`,
+          entity: `Lorry ${reg}`,
+          desc: diffDays < 0 ? `${type} expired ${Math.abs(diffDays)} days ago!` : `${type} expires in ${diffDays} days!`,
+          severity: diffDays <= 7 ? 'danger' : 'warning'
+        });
+      }
+    };
+    checkExpiry(truck.expiry_fc || truck.expiryFC, 'Fitness Certificate');
+    checkExpiry(truck.expiry_ins || truck.expiryIns, 'Insurance');
+    checkExpiry(truck.expiry_rc || truck.expiryRC, 'RC');
+    checkExpiry(truck.expiry_np || truck.expiryNP, 'Permit');
+  });
+
+  (drivers || []).forEach(driver => {
+    const licExp = driver.licence_exp || driver.licenceExp;
+    if (licExp) {
+      const expDate = new Date(licExp);
+      if (!isNaN(expDate.getTime())) {
+        const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 30) {
+          actionItems.push({
+            type: 'Licence Expiry',
+            entity: `Driver ${driver.name || 'Driver'}`,
+            desc: diffDays < 0 ? `Driving licence expired ${Math.abs(diffDays)} days ago!` : `Driving licence expires in ${diffDays} days!`,
+            severity: diffDays <= 7 ? 'danger' : 'warning'
+          });
+        }
+      }
+    }
+  });
 
   // 2. Unassigned cargo connections
   const unassignedLrs = filteredLrs.filter(l => !l.manifestId && (l.status === 'Booked' || l.status === 'Crossing'));

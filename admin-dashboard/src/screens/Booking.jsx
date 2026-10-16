@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Calculator, Truck, Layers, FileSignature, CheckCircle, ArrowRight, Info, Plus, Trash2, Printer, X, ShieldCheck, MessageSquare, Send, UserCheck, Download, Loader2, AlertTriangle, Search } from 'lucide-react';
 import GlossaryTooltip from '../components/GlossaryTooltip';
 import { GLOSSARY } from '../components/glossaryData';
-import { api } from '../services/api';
+import { api, isTruckAvailable, isDriverAvailable } from '../services/api';
 import RouteWeatherPanel from '../components/RouteWeatherPanel';
 
-export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCards, trucks, drivers }) {
+export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCards, trucks, drivers, manifests = [] }) {
   const getBookingBranchCode = (city) => {
     const code = (city || '').substring(0, 3).toUpperCase() === 'MUM' ? 'BOM' : (city || '').substring(0, 3).toUpperCase();
     return ['DEL', 'BOM', 'BLR'].includes(code) ? code : 'DEL';
@@ -152,8 +152,8 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
 
   // --- FTL Specific States ---
   const [contractRate, setContractRate]   = useState(60000);
-  const [selectedTruck, setSelectedTruck] = useState(trucks[0]?.regNo || '');
-  const [selectedDriver, setSelectedDriver] = useState(drivers[0]?.id || '');
+  const [selectedTruck, setSelectedTruck] = useState('');
+  const [selectedDriver, setSelectedDriver] = useState('');
 
   // Hired / Ad-hoc truck states (ephemeral: attached to LR & Trip without cluttering permanent fleet masters)
   const [truckSourceType, setTruckSourceType] = useState('fleet'); // 'fleet' or 'hired'
@@ -161,6 +161,21 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
   const [driverSourceType, setDriverSourceType] = useState('fleet'); // 'fleet' or 'custom'
   const [customDriverName, setCustomDriverName] = useState('');
   const [customDriverPhone, setCustomDriverPhone] = useState('');
+
+  // Auto-select first AVAILABLE truck and driver if none selected or current is invalid
+  useEffect(() => {
+    if (!selectedTruck || !trucks.some(t => (t.regNo || t.reg_no) === selectedTruck)) {
+      const avail = trucks.find(t => isTruckAvailable(t.regNo || t.reg_no, trips, manifests, trucks).available);
+      setSelectedTruck((avail?.regNo || avail?.reg_no) || trucks[0]?.regNo || trucks[0]?.reg_no || '');
+    }
+  }, [trucks, trips, manifests]);
+
+  useEffect(() => {
+    if (!selectedDriver || !drivers.some(d => d.id === selectedDriver)) {
+      const avail = drivers.find(d => isDriverAvailable(d.id, trips, manifests, drivers).available);
+      setSelectedDriver(avail?.id || drivers[0]?.id || '');
+    }
+  }, [drivers, trips, manifests]);
 
   // --- Box Size & Volumetric CFT States ---
   const [boxSizeType, setBoxSizeType]   = useState('Medium'); // 'Small', 'Medium', 'Large', 'Custom'
@@ -433,6 +448,21 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
     if (isFTL) {
       if (truckSourceType === 'hired' && !hiredTruckNo.trim()) {
         alert('Please enter the hired truck vehicle number before booking.');
+        return;
+      }
+
+      // ── Availability Guards: Must complete current trip first ──
+      const truckCheck = isTruckAvailable(effTruckNo, trips, manifests, trucks);
+      if (!truckCheck.available) {
+        alert(`❌ Cannot Dispatch Consignment:\nVehicle ${effTruckNo} is NOT AVAILABLE!\n\nStatus: ${truckCheck.reason}.\n\nThe vehicle must complete and deliver its current trip before starting another trip.`);
+        return;
+      }
+
+      const driverCheck = driverSourceType === 'fleet' 
+        ? isDriverAvailable(selectedDriver, trips, manifests, drivers)
+        : isDriverAvailable(effDriverName, trips, manifests, drivers);
+      if (!driverCheck.available) {
+        alert(`❌ Cannot Dispatch Consignment:\nDriver "${effDriverName}" is NOT AVAILABLE!\n\nStatus: ${driverCheck.reason}.\n\nThe driver must complete and deliver their current trip before being assigned another trip.`);
         return;
       }
 
@@ -1170,82 +1200,217 @@ export default function Booking({ lrs, setLrs, trips, setTrips, parties, rateCar
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="label-premium">
-                    {truckSourceType === 'fleet' ? 'Assign Fleet Truck' : 'Hired Truck Vehicle Number'}
-                  </label>
-                  {truckSourceType === 'fleet' ? (
-                    <select className="input-premium" value={selectedTruck} onChange={e => setSelectedTruck(e.target.value)}>
-                      {trucks.map(t => <option key={t.regNo || t.reg_no} value={t.regNo || t.reg_no}>{(t.regNo || t.reg_no)} ({t.ownership || 'Fleet'})</option>)}
-                    </select>
-                  ) : (
-                    <div>
-                      <input
-                        type="text"
-                        className="input-premium"
-                        placeholder="e.g. MH-12-AB-1234"
-                        value={hiredTruckNo}
-                        onChange={e => setHiredTruckNo(e.target.value.toUpperCase())}
-                        style={{ fontFamily: 'monospace', letterSpacing: '0.05em', fontWeight: '700' }}
-                      />
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                        ⚡ Ad-hoc vehicle for this trip & bilty (not added permanently to fleet masters)
-                      </span>
-                    </div>
-                  )}
-                </div>
+              {/* Live Availability Calculation & Selectors */}
+              {(() => {
+                const effTruckReg = truckSourceType === 'fleet' ? selectedTruck : hiredTruckNo.trim().toUpperCase();
+                const effTruckCheck = isTruckAvailable(effTruckReg, trips, manifests, trucks);
+                const effDriverCheck = driverSourceType === 'fleet'
+                  ? isDriverAvailable(selectedDriver, trips, manifests, drivers)
+                  : (customDriverName.trim() ? isDriverAvailable(customDriverName.trim(), trips, manifests, drivers) : { available: true });
 
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label className="label-premium" style={{ marginBottom: 0 }}>Assign Driver</label>
-                    <button
-                      type="button"
-                      style={{ background: 'transparent', border: 'none', color: 'var(--brand-light)', fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
-                      onClick={() => setDriverSourceType(prev => prev === 'fleet' ? 'custom' : 'fleet')}
-                    >
-                      {driverSourceType === 'fleet' ? '+ Custom / Hired Driver' : 'Pick Fleet Driver'}
-                    </button>
-                  </div>
-                  {driverSourceType === 'fleet' ? (
-                    <select className="input-premium" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
-                      {drivers.map(d => <option key={d.id} value={d.id}>{d.name} ({d.phone})</option>)}
-                    </select>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px' }}>
-                      <input
-                        type="text"
-                        className="input-premium"
-                        placeholder="Driver Name"
-                        value={customDriverName}
-                        onChange={e => setCustomDriverName(e.target.value)}
-                        style={{ fontSize: '0.82rem' }}
-                      />
-                      <input
-                        type="tel"
-                        className="input-premium"
-                        placeholder="Mobile (10 digits)"
-                        value={customDriverPhone}
-                        onChange={e => setCustomDriverPhone(e.target.value)}
-                        style={{ fontSize: '0.82rem' }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <label className="label-premium">
+                          {truckSourceType === 'fleet' ? 'Assign Fleet Truck' : 'Hired Truck Vehicle Number'}
+                        </label>
+                        {truckSourceType === 'fleet' ? (
+                          <select className="input-premium" value={selectedTruck} onChange={e => setSelectedTruck(e.target.value)}>
+                            {trucks.map(t => {
+                              const reg = t.regNo || t.reg_no;
+                              const chk = isTruckAvailable(reg, trips, manifests, trucks);
+                              return (
+                                <option 
+                                  key={reg} 
+                                  value={reg}
+                                  disabled={!chk.available}
+                                  style={{
+                                    color: chk.available ? '#10b981' : '#ef4444',
+                                    fontWeight: '600'
+                                  }}
+                                >
+                                  {chk.available ? '🟢 ' : '🔴 '}
+                                  {reg} ({t.ownership || 'Fleet'} · {t.model || 'Truck'}) — {chk.available ? 'Available' : `Not Available (${chk.reason})`}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <div>
+                            <input
+                              type="text"
+                              className="input-premium"
+                              placeholder="e.g. MH-12-AB-1234"
+                              value={hiredTruckNo}
+                              onChange={e => setHiredTruckNo(e.target.value.toUpperCase())}
+                              style={{ fontFamily: 'monospace', letterSpacing: '0.05em', fontWeight: '700' }}
+                            />
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                              ⚡ Ad-hoc vehicle for this trip & bilty (not added permanently to fleet masters)
+                            </span>
+                          </div>
+                        )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="label-premium">Agreed Contract Rate (₹)</label>
-                  <input type="number" className="input-premium" value={contractRate} onChange={e => setContractRate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label-premium">Declared Consignment Value (₹)</label>
-                  <input type="number" className="input-premium" value={declaredVal} onChange={e => setDeclaredVal(e.target.value)} />
-                </div>
-              </div>
+                        {/* Live Truck Status Card */}
+                        {effTruckReg && (
+                          effTruckCheck.available ? (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '6px',
+                              padding: '6px 10px', borderRadius: '6px',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
+                              color: '#10b981', fontSize: '0.74rem', fontWeight: '700', marginTop: '6px'
+                            }}>
+                              <CheckCircle size={13} /> 🟢 Vehicle {effTruckReg} is Available &amp; Ready
+                            </div>
+                          ) : (
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', gap: '2px',
+                              padding: '7px 10px', borderRadius: '6px',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.45)',
+                              color: '#f87171', fontSize: '0.74rem', fontWeight: '700', marginTop: '6px'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <AlertTriangle size={13} /> 🔴 Vehicle {effTruckReg} — NOT AVAILABLE
+                              </div>
+                              <span style={{ fontSize: '0.68rem', fontWeight: '500', color: '#fca5a5' }}>
+                                {effTruckCheck.reason}. Must complete this trip before taking another trip!
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <label className="label-premium" style={{ marginBottom: 0 }}>Assign Driver</label>
+                          <button
+                            type="button"
+                            style={{ background: 'transparent', border: 'none', color: 'var(--brand-light)', fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
+                            onClick={() => setDriverSourceType(prev => prev === 'fleet' ? 'custom' : 'fleet')}
+                          >
+                            {driverSourceType === 'fleet' ? '+ Custom / Hired Driver' : 'Pick Fleet Driver'}
+                          </button>
+                        </div>
+                        {driverSourceType === 'fleet' ? (
+                          <select className="input-premium" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}>
+                            {drivers.map(d => {
+                              const chk = isDriverAvailable(d.id, trips, manifests, drivers);
+                              return (
+                                <option 
+                                  key={d.id} 
+                                  value={d.id}
+                                  disabled={!chk.available}
+                                  style={{
+                                    color: chk.available ? '#10b981' : '#ef4444',
+                                    fontWeight: '600'
+                                  }}
+                                >
+                                  {chk.available ? '🟢 ' : '🔴 '}
+                                  {d.name} ({d.phone || 'No phone'}) — {chk.available ? 'Available' : `Not Available (${chk.reason})`}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px' }}>
+                            <input
+                              type="text"
+                              className="input-premium"
+                              placeholder="Driver Name"
+                              value={customDriverName}
+                              onChange={e => setCustomDriverName(e.target.value)}
+                              style={{ fontSize: '0.82rem' }}
+                            />
+                            <input
+                              type="tel"
+                              className="input-premium"
+                              placeholder="Mobile (10 digits)"
+                              value={customDriverPhone}
+                              onChange={e => setCustomDriverPhone(e.target.value)}
+                              style={{ fontSize: '0.82rem' }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Live Driver Status Card */}
+                        {(driverSourceType === 'fleet' ? selectedDriver : customDriverName.trim()) && (
+                          effDriverCheck.available ? (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '6px',
+                              padding: '6px 10px', borderRadius: '6px',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
+                              color: '#10b981', fontSize: '0.74rem', fontWeight: '700', marginTop: '6px'
+                            }}>
+                              <CheckCircle size={13} /> 🟢 Driver {driverSourceType === 'fleet' ? (drivers.find(d => d.id === selectedDriver)?.name || 'Driver') : customDriverName} is Available
+                            </div>
+                          ) : (
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', gap: '2px',
+                              padding: '7px 10px', borderRadius: '6px',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.45)',
+                              color: '#f87171', fontSize: '0.74rem', fontWeight: '700', marginTop: '6px'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <AlertTriangle size={13} /> 🔴 Driver {driverSourceType === 'fleet' ? (drivers.find(d => d.id === selectedDriver)?.name || 'Driver') : customDriverName} — NOT AVAILABLE
+                              </div>
+                              <span style={{ fontSize: '0.68rem', fontWeight: '500', color: '#fca5a5' }}>
+                                {effDriverCheck.reason}. Must complete this trip before another trip can be assigned!
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div>
+                        <label className="label-premium">Agreed Contract Rate (₹)</label>
+                        <input type="number" className="input-premium" value={contractRate} onChange={e => setContractRate(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="label-premium">Declared Consignment Value (₹)</label>
+                        <input type="number" className="input-premium" value={declaredVal} onChange={e => setDeclaredVal(e.target.value)} />
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
+
+          {/* Availability warning banner if user attempts FTL dispatch with busy resources */}
+          {isFTL && (() => {
+            const effTruckReg = truckSourceType === 'fleet' ? selectedTruck : hiredTruckNo.trim().toUpperCase();
+            const effTruckCheck = isTruckAvailable(effTruckReg, trips, manifests, trucks);
+            const effDriverCheck = driverSourceType === 'fleet'
+              ? isDriverAvailable(selectedDriver, trips, manifests, drivers)
+              : (customDriverName.trim() ? isDriverAvailable(customDriverName.trim(), trips, manifests, drivers) : { available: true });
+
+            if (!effTruckCheck.available || !effDriverCheck.available) {
+              return (
+                <div style={{
+                  padding: '10px 14px', borderRadius: '8px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#f87171', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '10px'
+                }}>
+                  <AlertTriangle size={18} style={{ flexShrink: 0, color: '#ef4444' }} />
+                  <div>
+                    <strong>Cannot Dispatch:</strong>{' '}
+                    {!effTruckCheck.available && `Vehicle ${effTruckReg} is busy (${effTruckCheck.reason}). `}
+                    {!effDriverCheck.available && `Driver is busy (${effDriverCheck.reason}). `}
+                    <span>Complete and deliver the active trip first before creating a new trip!</span>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Operational buttons: Book vs Queue (FR-3.6) */}
           <div style={{ display: 'flex', gap: '12px' }}>

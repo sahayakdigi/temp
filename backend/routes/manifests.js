@@ -72,6 +72,52 @@ router.post('/', async (req, res) => {
   const lrNosStr = Array.isArray(rawLrNos) ? JSON.stringify(rawLrNos) : (rawLrNos || '[]');
 
   try {
+    // 1. Guard against vehicle already on an active manifest or active trip
+    if (effVehicleNo) {
+      const busyVehicleTrip = await pool.query(
+        `SELECT id, status FROM trips WHERE UPPER(REPLACE(truck_no, ' ', '')) = UPPER(REPLACE($1, ' ', '')) AND status NOT IN ('Delivered', 'Cancelled') LIMIT 1`,
+        [effVehicleNo]
+      );
+      if (busyVehicleTrip.rows.length > 0) {
+        return res.status(400).json({ 
+          error: `Vehicle ${effVehicleNo} is already assigned to active FTL trip ${busyVehicleTrip.rows[0].id} (${busyVehicleTrip.rows[0].status}).` 
+        });
+      }
+
+      const busyVehicleManifest = await pool.query(
+        `SELECT id, status FROM manifests WHERE UPPER(REPLACE(vehicle_no, ' ', '')) = UPPER(REPLACE($1, ' ', '')) AND status NOT IN ('Delivered', 'Completed', 'Received', 'Cancelled') LIMIT 1`,
+        [effVehicleNo]
+      );
+      if (busyVehicleManifest.rows.length > 0) {
+        return res.status(400).json({ 
+          error: `Vehicle ${effVehicleNo} is already assigned to active manifest ${busyVehicleManifest.rows[0].id} (${busyVehicleManifest.rows[0].status}).` 
+        });
+      }
+    }
+
+    // 2. Guard against driver already on an active manifest or active trip
+    if (effDriverName) {
+      const busyDriverTrip = await pool.query(
+        `SELECT id, status FROM trips WHERE LOWER(driver_name) = LOWER($1) AND status NOT IN ('Delivered', 'Cancelled') LIMIT 1`,
+        [effDriverName]
+      );
+      if (busyDriverTrip.rows.length > 0) {
+        return res.status(400).json({ 
+          error: `Driver ${effDriverName} is already assigned to active FTL trip ${busyDriverTrip.rows[0].id} (${busyDriverTrip.rows[0].status}).` 
+        });
+      }
+
+      const busyDriverManifest = await pool.query(
+        `SELECT id, status FROM manifests WHERE LOWER(driver_name) = LOWER($1) AND status NOT IN ('Delivered', 'Completed', 'Received', 'Cancelled') LIMIT 1`,
+        [effDriverName]
+      );
+      if (busyDriverManifest.rows.length > 0) {
+        return res.status(400).json({ 
+          error: `Driver ${effDriverName} is already assigned to active manifest ${busyDriverManifest.rows[0].id} (${busyDriverManifest.rows[0].status}).` 
+        });
+      }
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO manifests (
         id, lane, vehicle_no, driver_name, driver_phone, status, date,
@@ -85,6 +131,14 @@ router.post('/', async (req, res) => {
         effOriginHub, effDestHub, lrNosStr
       ]
     );
+
+    if (effVehicleNo) {
+      await pool.query(
+        `UPDATE trucks SET status = 'InTransit' WHERE UPPER(REPLACE(reg_no, ' ', '')) = UPPER(REPLACE($1, ' ', ''))`,
+        [effVehicleNo]
+      );
+    }
+
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -136,6 +190,28 @@ router.patch('/:id', async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Manifest not found' });
     }
+
+    const updated = rows[0];
+    if (['Delivered', 'Completed', 'Received', 'Cancelled'].includes(updated.status)) {
+      const vehNo = updated.vehicle_no;
+      if (vehNo) {
+        const activeManifests = await pool.query(
+          `SELECT id FROM manifests WHERE UPPER(REPLACE(vehicle_no, ' ', '')) = UPPER(REPLACE($1, ' ', '')) AND status NOT IN ('Delivered', 'Completed', 'Received', 'Cancelled') AND id != $2`,
+          [vehNo, id]
+        );
+        const activeTrips = await pool.query(
+          `SELECT id FROM trips WHERE UPPER(REPLACE(truck_no, ' ', '')) = UPPER(REPLACE($1, ' ', '')) AND status NOT IN ('Delivered', 'Cancelled')`,
+          [vehNo]
+        );
+        if (activeManifests.rows.length === 0 && activeTrips.rows.length === 0) {
+          await pool.query(
+            `UPDATE trucks SET status = 'Available' WHERE UPPER(REPLACE(reg_no, ' ', '')) = UPPER(REPLACE($1, ' ', ''))`,
+            [vehNo]
+          );
+        }
+      }
+    }
+
     res.json(rows[0]);
   } catch (err) {
     console.error(err);

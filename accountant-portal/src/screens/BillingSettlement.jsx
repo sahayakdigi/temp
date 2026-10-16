@@ -593,7 +593,7 @@ export default function BillingSettlement({ lrs = [], setLrs, trips = [], setTri
                   </div>
 
                   <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    <p>Truck: <strong>{trip.truckNo || 'HR-55-AN-9021'}</strong> • Driver: <strong>{trip.driverName || 'Rajesh Kumar'}</strong></p>
+                    <p>Truck: <strong>{trip.truckNo || trip.truck_no || 'N/A'}</strong> • Driver: <strong>{trip.driverName || trip.driver_name || 'N/A'}</strong></p>
                     <p>Type: <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>{isHired ? 'Hired / Market Lorry' : 'Own Fleet Vehicle'}</span></p>
                     <p>Advance Issued: <strong>₹{advanceGiven.toLocaleString('en-IN')}</strong></p>
                   </div>
