@@ -328,7 +328,6 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
     if (!partyName) return;
 
     const payload = {
-      id: partyType === 'broker' ? `BRK-0${brokerCount + 1}` : `PAR-0${parties.length + 1}`,
       name: partyName, 
       type: partyType, 
       gstin: partyGstin || null,
@@ -349,7 +348,7 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
     };
 
     api.createParty(payload).then(saved => {
-      setParties([{
+      const formatted = {
         id: saved.id, 
         name: saved.name, 
         type: saved.type, 
@@ -365,7 +364,8 @@ function PartiesTab({ parties, setParties, lrs, showToast }) {
         subSplitPct: saved.subSplitPct !== undefined ? saved.subSplitPct : Number(subSplitPct || 30),
         tdsSection: saved.tdsSection || tdsSection,
         tdsRate: saved.tdsRate !== undefined ? saved.tdsRate : (tdsSection.includes('5%') ? 5 : 2)
-      }, ...parties]);
+      };
+      setParties(prev => [formatted, ...prev.filter(p => p.id !== saved.id)]);
       showToast(`${partyType === 'broker' ? 'Broker / Agent' : 'Party'} "${partyName}" registered successfully!`);
       setPartyName(''); setPartyGstin(''); setPartyPan(''); setPartyLimit(''); setPartyDays(''); 
       setPartyAddress(''); setPartyPhone(''); setPartyEmail(''); setPartyPassword('');

@@ -12,9 +12,13 @@ import {
 import { USERS } from './users';
 import { isTruckAvailable, isDriverAvailable } from './fleetAvailability';
 
-const BASE_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3001/api' 
-  : '/api';
+const BASE_URL = (typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1' || 
+  window.location.hostname.startsWith('192.168.') || 
+  window.location.hostname.startsWith('10.') ||
+  (window.location.port && window.location.port !== '80' && window.location.port !== '443')
+)) ? `http://${window.location.hostname || 'localhost'}:3001/api` : '/api';
 
 const handleResponse = async (response) => {
   if (!response.ok) {
@@ -756,17 +760,24 @@ const mockDb = {
   getGlossary: () => []
 };
 
-const callWithFallback = async (apiPromiseFn, mockFn) => {
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const callWithFallback = async (apiPromiseFn, mockFn, isWrite = false) => {
+  const isLocal = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' || 
+    window.location.hostname.startsWith('192.168.') || 
+    window.location.hostname.startsWith('10.') || 
+    (window.location.port && window.location.port !== '80' && window.location.port !== '443')
+  );
   if (!isLocal) {
     return Promise.resolve(mockFn());
   }
   try {
     return await apiPromiseFn();
   } catch (error) {
-    // If backend returned a 4xx validation error (e.g. 400 Bad Request),
-    // do NOT fall back and silently succeed! Re-throw so caller sees why it failed!
-    if (error && error.status >= 400 && error.status < 500) {
+    // When performing mutating write operations (POST, PUT, PATCH, DELETE) or when receiving HTTP errors,
+    // NEVER mask the database error by falling back to mockDb in local storage.
+    // Throwing ensures the backend failure is surfaced to the UI and user, preventing ghost records.
+    if (isWrite || (error && (error.status >= 400 || (error.message && error.message.includes('status:'))))) {
       throw error;
     }
     console.warn("Backend API failed, falling back to mock database:", error);
@@ -870,7 +881,8 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       }).then(handleResponse).then(mapParty),
-      () => mapParty(mockDb.createParty(data))
+      () => mapParty(mockDb.createParty(data)),
+      true
     ),
   updateParty: (id, updates) => 
     callWithFallback(
@@ -879,14 +891,16 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       }).then(handleResponse).then(mapParty),
-      () => mapParty(mockDb.updateParty(id, updates))
+      () => mapParty(mockDb.updateParty(id, updates)),
+      true
     ),
   deleteParty: (id) => 
     callWithFallback(
       () => fetch(`${BASE_URL}/parties/${id}`, {
         method: 'DELETE'
       }).then(handleResponse),
-      () => mockDb.deleteParty(id)
+      () => mockDb.deleteParty(id),
+      true
     ),
 
   // Lorry Receipts (Bookings)
